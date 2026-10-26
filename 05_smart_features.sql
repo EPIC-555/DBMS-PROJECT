@@ -10,6 +10,15 @@
 -- =====================================================================
 USE travel_itinerary_db;
 
+-- Drop the triggers first: they survive a table drop only if the table is dropped,
+-- and re-running this script must not fail with "Trigger already exists" (error 1359).
+DROP TRIGGER IF EXISTS trg_trips_audit_au;
+DROP TRIGGER IF EXISTS trg_res_audit_au;
+DROP TRIGGER IF EXISTS trg_transport_audit_au;
+DROP TRIGGER IF EXISTS trg_exp_audit_au;
+DROP TRIGGER IF EXISTS trg_exp_audit_ad;
+DROP TRIGGER IF EXISTS trg_exp_budget_alert_ai;
+DROP TRIGGER IF EXISTS trg_exp_budget_alert_au;
 DROP VIEW  IF EXISTS v_trip_timeline;
 DROP VIEW  IF EXISTS v_trip_cost_summary;
 DROP TABLE IF EXISTS trip_alerts;
