@@ -10,8 +10,9 @@ Scripts are numbered "add-ons" and MUST run in order:
 1. `01_travel_itinerary_v2_full.sql` â€” base: 21 tables, 27 FKs, 12 triggers, 1 view, 2 procedures, 312 sample rows
 2. `02_demo_queries.sql` â€” 12 queries (Q1-Q12), 14 rule tests (C1-C14), procedure demo
 3. `03_transport_module.sql` â€” transport (flight/train/cab/bus/metro): +9 tables, +13 FKs, +12 triggers, +1 view
-4. `04_*.sql` â€” (not present)
+4. `04_transport_demo.sql` â€” transport demo: 7 queries (T1-T7), 10 rule tests (X1-X10)
 5. `05_smart_features.sql` â€” audit_log + trip_alerts: +2 tables, +1 FK, +7 triggers, +2 views
+6. `06_demo_amenities_views_triggers.sql` â€” amenities, dashboard views, alerts + audit-trail demo
 
 Running totals after 05: **32 tables, 41 FKs, 31 triggers, 4 views**.
 
@@ -45,11 +46,10 @@ Load: `mysql -h127.0.0.1 -P3307 -uroot -prootpw < script.sql`
   counts are 32 / 41 / 31 / 4. Intended order per the demo header is 01 then 02.
 
 ## Plan document (PDF)
-- `Feasibility Study and Implementation Plan Travel Itinerary and Expense Organizer.pdf`
-  is Revision 2 (26 Oct 2026): updated to the current 32/41/31/4 scope, documents the
+- `FEASIBILITY.pdf` is Revision 2 (26 Oct 2026): updated to the current 32/41/31/4 scope, documents the
   transport module and smart layer, and records the MySQL 8.4.13 verification.
 - It is generated from `feasibility_plan_source.html` with WeasyPrint:
-  `python3 -c "from weasyprint import HTML; HTML('feasibility_plan_source.html').write_pdf('Feasibility Study and Implementation Plan Travel Itinerary and Expense Organizer.pdf')"`
+  `python3 -c "from weasyprint import HTML; HTML('feasibility_plan_source.html').write_pdf('FEASIBILITY.pdf')"`
   Edit the HTML, not the PDF, when changing the document.
 
 ## Verified on MySQL 8.4.13 (all passing)
@@ -63,6 +63,13 @@ Load: `mysql -h127.0.0.1 -P3307 -uroot -prootpw < script.sql`
 - Transport triggers (03): carrier/mode, station/mode, same-station, booker-role, subtype-guard
   and chk_tb_times all reject; valid cab bookings (no stations) succeed.
 - Smart layer (05): audit_log records status changes; trip_alerts fire at 80% and over budget.
+- 04 (transport demo): T1-T7 outputs match the file comments; all 10 X-tests rejected
+  (1644 carrier/mode, 1644 same station, 1644 station/mode, 1644 metro needs stations,
+  3819 chk_tb_times, 1644 booker role, 1644 item-trip, 1644 subtype guard, 1062 seat,
+  1451 carrier RESTRICT); valid legs pass.
+- 06 (amenities/views/triggers): counts 32/41/31/4; A1-A4 amenity results match; A4 cascade
+  5->0; B1 timeline 15 rows; B2 cost summary matches; C1-C3 alerts 80%/exceeded/no dup;
+  C4 audit 6 rows; ROLLBACK leaves 0 alerts and 0 audit rows. No errors in 06.
 
 ## Expected acceptance counts (quick check at end of each script)
 - after 01: tables 21, FKs 27, triggers 12, views 1
