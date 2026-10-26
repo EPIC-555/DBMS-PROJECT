@@ -13,12 +13,15 @@ Scripts are numbered "add-ons" and MUST run in order:
 4. `04_transport_demo.sql` â€” transport demo: 7 queries (T1-T7), 10 rule tests (X1-X10)
 5. `05_smart_features.sql` â€” audit_log + trip_alerts: +2 tables, +1 FK, +7 triggers, +2 views
 6. `06_demo_amenities_views_triggers.sql` â€” amenities, dashboard views, alerts + audit-trail demo
+7. `07_recommendation_engine.sql` â€” recommendation layer: trip suggestions (adds 1 table, 3 views, 1 procedure)
 
 Running totals after 05: **32 tables, 41 FKs, 31 triggers, 4 views**.
+Running totals after 07: **33 tables, 42 FKs, 31 triggers, 7 views, 3 procedures**.
 
 ### Gotcha
 `03` DROPs views/triggers that `05` creates (because they depend on transport tables).
-So after re-running `03`, you MUST re-run `05`.
+So after re-running `03`, you MUST re-run `05`. `07` does NOT depend on `03`, so it
+survives a `03` re-run; run it last regardless.
 
 ## Design conventions
 - Engine InnoDB, charset utf8mb4.
@@ -31,6 +34,21 @@ So after re-running `03`, you MUST re-run `05`.
 - Derived values (nights, totals, balance, remaining budget) are NEVER stored; computed in views/queries.
 - ON DELETE: CASCADE for owned children, RESTRICT for shared master data, SET NULL for optional links.
 - Rules enforced by BEFORE triggers (SIGNAL SQLSTATE '45000'); reactions by AFTER triggers.
+
+## Application layer (app/)
+A FastAPI service over the database. Business rules stay in MySQL; the API validates
+input and shapes JSON. Modules: `app/db.py` (pooled connection + query helpers),
+`app/recommender.py` (calls the views and procedures), `app/main.py` (routes).
+Run: `uvicorn app.main:app --reload`. Config comes from `.env` (see `.env.example`);
+never commit the real `.env`. Tests in `tests/test_api.py` run against a live MySQL.
+
+## Recommendation model (07)
+Scores each destination a user has NOT visited, out of 100: quality 30 (avg rating),
+crowd 15 (review count), wishlist 15 (save count), personal taste 20 (user saved or
+rated it 4+), in season 20. `destination_season_months` normalises the free-text
+`destinations.best_season` into month numbers so "what suits me in March?" is a query.
+Weights are literal constants in the view and procedure â€” change them and the ranking
+changes, so keep the two copies in step.
 
 ## Verified environment
 MySQL 8.4 LTS. Local test container:
@@ -70,6 +88,16 @@ Load: `mysql -h127.0.0.1 -P3307 -uroot -prootpw < script.sql`
 - 06 (amenities/views/triggers): counts 32/41/31/4; A1-A4 amenity results match; A4 cascade
   5->0; B1 timeline 15 rows; B2 cost summary matches; C1-C3 alerts 80%/exceeded/no dup;
   C4 audit 6 rows; ROLLBACK leaves 0 alerts and 0 audit rows. No errors in 06.
+- 07 (recommendation): counts 33/42/31/7 + 3 procedures. Suggestions exclude visited
+  destinations (user 2 never gets Goa). Ranking verified: user 2 for March returns
+  Jaipur 67, Coorg 58, Munnar 53, Udaipur 50 (Udaipur carries 'already on your wishlist').
+  Season flag flips with the month (Manali in season in Jan, not in Jul). Re-run is
+  idempotent and survives a `03` re-run.
+- API: 16/16 tests pass against MySQL 8.4.13 (`pytest -q`), endpoints also verified over
+  real HTTP. Three bugs found and fixed during testing: (1) CALL leaves extra result sets,
+  which if undrained corrupts the pool and later raises 'MySQL Connection not available';
+  (2) DECIMAL columns serialised as JSON strings, now floats; (3) the create-trip test
+  left rows behind, now deleted via the cascade.
 
 ## Expected acceptance counts (quick check at end of each script)
 - after 01: tables 21, FKs 27, triggers 12, views 1
