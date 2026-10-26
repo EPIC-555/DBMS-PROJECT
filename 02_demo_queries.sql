@@ -6,18 +6,19 @@
 USE travel_itinerary_db;
 
 -- ########## SECTION A: structure is really there ##########
-SHOW TABLES;                                                          -- 21 tables + 1 view
-
+--  Counts below assume the base schema only (run 01, then this file). If you have also
+--  run 03 and 05, expect 32 tables / 4 views, 41 FKs and 31 triggers instead.
+SHOW TABLES;                                                          -- 21 tables + 1 view (base only)
 SELECT table_name, table_rows FROM information_schema.tables
  WHERE table_schema = 'travel_itinerary_db' AND table_type = 'BASE TABLE' ORDER BY table_name;
 
 SELECT constraint_name, table_name, referenced_table_name, delete_rule, update_rule
   FROM information_schema.referential_constraints
- WHERE constraint_schema = 'travel_itinerary_db' ORDER BY table_name;   -- 27 rows
+ WHERE constraint_schema = 'travel_itinerary_db' ORDER BY table_name;   -- 27 rows (base only)
 
 SELECT trigger_name, event_object_table, action_timing, event_manipulation
   FROM information_schema.triggers WHERE trigger_schema = 'travel_itinerary_db'
- ORDER BY event_object_table, trigger_name;                            -- 12 rows
+ ORDER BY event_object_table, trigger_name;                            -- 12 rows (base only)
 
 -- ########## SECTION B: queries ##########
 
