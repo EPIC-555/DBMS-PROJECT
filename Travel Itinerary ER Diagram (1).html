@@ -1,0 +1,170 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Travel Itinerary ER Diagram</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Layout: one quiet sheet. Short heading, a legend, then the diagram as the only large object. Four colours mark the modules: slate core, purple transport, orange hotel, green smart layer. */
+:root{
+  --bg:#F1F4F5; --panel:#FFFFFF; --ink:#13232A; --muted:#5B6E77; --line:#5E7580; --rule:#D3DCDF;
+  --c-core:#27404B; --c-core-ink:#FFFFFF;
+  --c-hotel:#B5541B; --c-hotel-ink:#FFFFFF;
+  --c-trans:#6B4C9A; --c-trans-ink:#FFFFFF;
+  --c-smart:#2D7A58; --c-smart-ink:#FFFFFF;
+  --f-display:'Archivo','Segoe UI','DejaVu Sans',system-ui,sans-serif;
+  --f-mono:'JetBrains Mono','DejaVu Sans Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F191E; --panel:#17252C; --ink:#E4EDF0; --muted:#8FA5AE; --line:#7F98A3; --rule:#2B3B43;
+  --c-core:#35525F; --c-core-ink:#F3F8FA;
+  --c-hotel:#E38C55; --c-hotel-ink:#1A0F08;
+  --c-trans:#A88BDB; --c-trans-ink:#140C24;
+  --c-smart:#5CC096; --c-smart-ink:#08170F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F191E; --panel:#17252C; --ink:#E4EDF0; --muted:#8FA5AE; --line:#7F98A3; --rule:#2B3B43;
+  --c-core:#35525F; --c-core-ink:#F3F8FA;
+  --c-hotel:#E38C55; --c-hotel-ink:#1A0F08;
+  --c-trans:#A88BDB; --c-trans-ink:#140C24;
+  --c-smart:#5CC096; --c-smart-ink:#08170F; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-display);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px}
+.wrap{max-width:1360px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{margin:0;font-size:clamp(22px,3.4vw,30px);line-height:1.15;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.sub{margin:6px 0 4px;color:var(--muted);max-width:68ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:center;color:var(--muted);font-size:13px}
+.lg{display:inline-flex;align-items:center;gap:8px;min-width:0}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--c-core)}
+.sw.transport{background:var(--c-trans)} .sw.hotel{background:var(--c-hotel)} .sw.smart{background:var(--c-smart)}
+.mono{font-family:var(--f-mono);font-size:12px}
+.mono.k{color:var(--ink)} .mono.f{color:var(--muted)}
+.sheet{background:var(--panel);border:1px solid var(--rule);border-radius:8px;overflow-x:auto;padding:12px;margin-top:4px}
+.sheet svg{display:block;width:100%;min-width:900px;height:auto}
+/* marks */
+.box{fill:var(--panel);stroke:var(--line);stroke-width:1.3}
+.outer{fill:none;stroke:var(--line);stroke-width:1.3}
+.head{stroke:none;fill:var(--c-core)}
+.name{font:700 13px var(--f-display);fill:var(--c-core-ink);letter-spacing:.01em}
+.hotel .head{fill:var(--c-hotel)} .hotel .name{fill:var(--c-hotel-ink)}
+.transport .head{fill:var(--c-trans)} .transport .name{fill:var(--c-trans-ink)}
+.smart .head{fill:var(--c-smart)} .smart .name{fill:var(--c-smart-ink)}
+.tag{font:700 9px var(--f-mono);letter-spacing:.04em}
+.tag.k{fill:var(--ink)} .tag.f{fill:var(--muted)}
+.col{font:400 11.5px var(--f-mono);fill:var(--ink)}
+.rel{fill:none;stroke:var(--line);stroke-width:1.4;stroke-linejoin:round}
+.sym line{stroke:var(--line);stroke-width:1.4;stroke-linecap:round}
+.isa{fill:var(--panel);stroke:var(--line);stroke-width:1.5;stroke-linejoin:round}
+.edge.hotel .rel,.edge.hotel .sym line,.edge.hotel .isa{stroke:var(--c-hotel)}
+.edge.transport .rel,.edge.transport .sym line,.edge.transport .isa{stroke:var(--c-trans)}
+.edge.smart .rel,.edge.smart .sym line{stroke:var(--c-smart)}
+.elab{font:500 9px var(--f-mono);fill:var(--muted)}
+.zone{font:700 10.5px var(--f-mono);letter-spacing:.12em;fill:var(--muted)}
+.zone.hotel{fill:var(--c-hotel)} .zone.transport{fill:var(--c-trans)}
+.zone-line{stroke:var(--rule);stroke-width:1.5}
+</style>
+<div class="wrap">
+  <header>
+    <h1>Travel Itinerary ER Diagram</h1>
+    <p class="sub">32 tables and 41 relationships in crow's foot notation. Each table shows only its keys. Transport booking is one supertype with five subtypes that share its key.</p>
+  </header>
+  
+<div class="legend">
+  <span class="lg"><i class="sw core"></i>Trips and money</span>
+  <span class="lg"><i class="sw transport"></i>Transport</span>
+  <span class="lg"><i class="sw hotel"></i>Hotel</span>
+  <span class="lg"><i class="sw smart"></i>Smart layer</span>
+</div>
+<div class="legend">
+  <span class="lg"><svg width="64" height="20" viewBox="0 0 64 20" aria-hidden="true"><g class="edge"><path d="M2 10 H62" class="rel"/><g class="sym"><line x1="14" y1="4" x2="14" y2="16"/><line x1="48" y1="10" x2="62" y2="3"/><line x1="48" y1="10" x2="62" y2="17"/><line x1="48" y1="10" x2="62" y2="10"/></g></g></svg>one to many</span>
+  <span class="lg"><svg width="64" height="20" viewBox="0 0 64 20" aria-hidden="true"><g class="edge"><path d="M2 10 H62" class="rel"/><g class="sym"><line x1="14" y1="4" x2="14" y2="16"/><line x1="50" y1="4" x2="50" y2="16"/></g></g></svg>one to one</span>
+  <span class="lg"><svg width="64" height="20" viewBox="0 0 64 20" aria-hidden="true"><g class="edge transport"><path d="M2 10 H62" class="rel"/><polygon points="2,10 17,2 17,18" class="isa"/></g></svg>is a (subtype)</span>
+  <span class="lg"><svg width="34" height="22" viewBox="0 0 34 22" aria-hidden="true"><g class="ent weak"><rect x="1" y="1" width="32" height="20" rx="5" class="outer"/><rect x="4" y="4" width="26" height="14" rx="3" class="box"/></g></svg>weak entity</span>
+  <span class="lg"><b class="mono k">PK</b> primary key</span>
+  <span class="lg"><b class="mono f">FK</b> foreign key</span>
+  <span class="lg"><b class="mono f">PPK</b> partial key</span>
+</div>
+  <div class="sheet">
+<svg id="er" viewBox="0 0 1330 1770" role="img" aria-label="Entity-relationship diagram of the travel itinerary database: 32 tables showing only their key columns, with 41 relationships">
+<text x="60" y="16" class="zone">TRIPS, DESTINATIONS AND MONEY</text>
+<line x1="60" y1="870" x2="1280" y2="870" class="zone-line"/>
+<text x="60" y="894" class="zone transport">TRANSPORT BOOKING</text>
+<line x1="60" y1="1390" x2="1280" y2="1390" class="zone-line"/>
+<text x="60" y="1414" class="zone hotel">HOTEL BOOKING</text>
+<g class="edge core"><title>expense_categories to expenses</title><path d="M1060 740 L740 740" class="rel"/><g class="sym"><line x1="1049" y1="734" x2="1049" y2="746"/><line x1="755" y1="740" x2="740" y2="733"/><line x1="755" y1="740" x2="740" y2="740"/><line x1="755" y1="740" x2="740" y2="747"/></g></g>
+<g class="edge core"><title>itinerary_items to expenses</title><path d="M827.1 604 L725.3 678" class="rel"/><g class="sym"><line x1="814.7" y1="605.6" x2="821.7" y2="615.3"/><line x1="737.4" y1="669.2" x2="721.2" y2="672.3"/><line x1="737.4" y1="669.2" x2="725.3" y2="678"/><line x1="737.4" y1="669.2" x2="729.4" y2="683.7"/></g></g>
+<g class="edge core"><title>users to expenses</title><path d="M304.3 381 L582 678" class="rel"/><g class="sym"><line x1="307.4" y1="393.1" x2="316.2" y2="384.9"/><line x1="571.8" y1="667" x2="576.9" y2="682.8"/><line x1="571.8" y1="667" x2="582" y2="678"/><line x1="571.8" y1="667" x2="587.1" y2="673.2"/></g></g>
+<g class="edge core"><title>trips to expenses</title><path d="M346.7 586 L540 687.5" class="rel"/><g class="sym"><line x1="353.6" y1="596.4" x2="359.2" y2="585.8"/><line x1="526.7" y1="680.5" x2="536.7" y2="693.7"/><line x1="526.7" y1="680.5" x2="540" y2="687.5"/><line x1="526.7" y1="680.5" x2="543.3" y2="681.3"/></g></g>
+<g class="edge core"><title>itinerary_items to bookings</title><path d="M991.3 498 L1099.7 435" class="rel"/><g class="sym"><line x1="1003.8" y1="497.7" x2="997.8" y2="487.3"/><line x1="1087.2" y1="435.3" x2="1093.2" y2="445.7"/></g></g>
+<g class="edge core"><title>trips to itinerary_days</title><path d="M380 551 L540 551" class="rel"/><g class="sym"><line x1="391" y1="557" x2="391" y2="545"/><line x1="525" y1="551" x2="540" y2="558"/><line x1="525" y1="551" x2="540" y2="551"/><line x1="525" y1="551" x2="540" y2="544"/></g></g>
+<g class="edge core"><title>activity_categories to itinerary_items</title><path d="M1060 551 L1000 551" class="rel"/><g class="sym"><line x1="1049" y1="545" x2="1049" y2="557"/><line x1="1015" y1="551" x2="1000" y2="544"/><line x1="1015" y1="551" x2="1000" y2="551"/><line x1="1015" y1="551" x2="1000" y2="558"/></g></g>
+<g class="edge core"><title>itinerary_days to itinerary_items</title><path d="M740 551 L800 551" class="rel"/><g class="sym"><line x1="751" y1="557" x2="751" y2="545"/><line x1="785" y1="551" x2="800" y2="558"/><line x1="785" y1="551" x2="800" y2="551"/><line x1="785" y1="551" x2="800" y2="544"/></g></g>
+<g class="edge core"><title>places to itinerary_items</title><path d="M658.3 90 L872.2 498" class="rel"/><g class="sym"><line x1="658.1" y1="102.5" x2="668.8" y2="97"/><line x1="865.3" y1="484.7" x2="866" y2="501.2"/><line x1="865.3" y1="484.7" x2="872.2" y2="498"/><line x1="865.3" y1="484.7" x2="878.4" y2="494.8"/></g></g>
+<g class="edge core"><title>destinations to places</title><path d="M380 55 L540 55" class="rel"/><g class="sym"><line x1="391" y1="61" x2="391" y2="49"/><line x1="525" y1="55" x2="540" y2="62"/><line x1="525" y1="55" x2="540" y2="55"/><line x1="525" y1="55" x2="540" y2="48"/></g></g>
+<g class="edge core"><title>destinations to reviews</title><path d="M259.2 81 L188 170" class="rel"/><g class="sym"><line x1="247.6" y1="85.8" x2="257" y2="93.3"/><line x1="197.4" y1="158.3" x2="182.5" y2="165.6"/><line x1="197.4" y1="158.3" x2="188" y2="170"/><line x1="197.4" y1="158.3" x2="193.5" y2="174.4"/></g></g>
+<g class="edge core"><title>users to reviews</title><path d="M259.2 329 L188 240" class="rel"/><g class="sym"><line x1="257" y1="316.7" x2="247.6" y2="324.2"/><line x1="197.4" y1="251.7" x2="193.5" y2="235.6"/><line x1="197.4" y1="251.7" x2="188" y2="240"/><line x1="197.4" y1="251.7" x2="182.5" y2="244.4"/></g></g>
+<g class="edge core"><title>destinations to saved_destinations</title><path d="M300.8 81 L372 170" class="rel"/><g class="sym"><line x1="303" y1="93.3" x2="312.4" y2="85.8"/><line x1="362.6" y1="158.3" x2="366.5" y2="174.4"/><line x1="362.6" y1="158.3" x2="372" y2="170"/><line x1="362.6" y1="158.3" x2="377.5" y2="165.6"/></g></g>
+<g class="edge core"><title>users to saved_destinations</title><path d="M300.8 329 L372 240" class="rel"/><g class="sym"><line x1="312.4" y1="324.2" x2="303" y2="316.7"/><line x1="362.6" y1="251.7" x2="377.5" y2="244.4"/><line x1="362.6" y1="251.7" x2="372" y2="240"/><line x1="362.6" y1="251.7" x2="366.5" y2="235.6"/></g></g>
+<g class="edge core"><title>users to trips</title><path d="M280 381 L280 516" class="rel"/><g class="sym"><line x1="274" y1="392" x2="286" y2="392"/><line x1="280" y1="501" x2="273" y2="516"/><line x1="280" y1="501" x2="280" y2="516"/><line x1="280" y1="501" x2="287" y2="516"/></g></g>
+<g class="edge core"><title>trips to trip_members</title><path d="M344.3 516 L465.7 450" class="rel"/><g class="sym"><line x1="356.9" y1="516" x2="351.1" y2="505.5"/><line x1="452.5" y1="457.2" x2="469" y2="456.1"/><line x1="452.5" y1="457.2" x2="465.7" y2="450"/><line x1="452.5" y1="457.2" x2="462.3" y2="443.9"/></g></g>
+<g class="edge core"><title>users to trip_members</title><path d="M380 379 L430 391" class="rel"/><g class="sym"><line x1="389.3" y1="387.4" x2="392.1" y2="375.7"/><line x1="415.4" y1="387.5" x2="428.4" y2="397.8"/><line x1="415.4" y1="387.5" x2="430" y2="391"/><line x1="415.4" y1="387.5" x2="431.6" y2="384.2"/></g></g>
+<g class="edge smart"><title>trips to trip_alerts</title><path d="M257.8 586 L182.2 705" class="rel"/><g class="sym"><line x1="246.8" y1="592.1" x2="256.9" y2="598.5"/><line x1="190.3" y1="692.3" x2="176.3" y2="701.2"/><line x1="190.3" y1="692.3" x2="182.2" y2="705"/><line x1="190.3" y1="692.3" x2="188.1" y2="708.8"/></g></g>
+<g class="edge transport"><title>trips to transport_bookings</title><path d="M180 551 L44 551 L44 1010 L630 1010" class="rel"/><g class="sym"><line x1="169" y1="545" x2="169" y2="557"/><line x1="615" y1="1010" x2="630" y2="1017"/><line x1="615" y1="1010" x2="630" y2="1010"/><line x1="615" y1="1010" x2="630" y2="1003"/></g></g>
+<g class="edge transport"><title>itinerary_items to transport_bookings</title><path d="M820 604 L820 990" class="rel"/><g class="sym"><line x1="814" y1="615" x2="826" y2="615"/><line x1="820" y1="975" x2="813" y2="990"/><line x1="820" y1="975" x2="820" y2="990"/><line x1="820" y1="975" x2="827" y2="990"/></g></g>
+<g class="edge transport"><title>carriers to transport_bookings</title><path d="M517.2 966 L630 1017.3" class="rel"/><g class="sym"><line x1="524.7" y1="976" x2="529.7" y2="965.1"/><line x1="616.3" y1="1011.1" x2="627.1" y2="1023.6"/><line x1="616.3" y1="1011.1" x2="630" y2="1017.3"/><line x1="616.3" y1="1011.1" x2="632.9" y2="1010.9"/></g></g>
+<g class="edge transport"><title>users to transport_bookings</title><path d="M180 355 L20 355 L20 1130 L630 1130" class="rel"/><g class="sym"><line x1="169" y1="349" x2="169" y2="361"/><line x1="615" y1="1130" x2="630" y2="1137"/><line x1="615" y1="1130" x2="630" y2="1130"/><line x1="615" y1="1130" x2="630" y2="1123"/></g></g>
+<g class="edge transport"><title>stations to transport_bookings</title><path d="M530 1052 L630 1052" class="rel"/><g class="sym"><line x1="541" y1="1058" x2="541" y2="1046"/><line x1="615" y1="1052" x2="630" y2="1059"/><line x1="615" y1="1052" x2="630" y2="1052"/><line x1="615" y1="1052" x2="630" y2="1045"/></g><text x="580" y="1047" text-anchor="middle" class="elab">from</text></g>
+<g class="edge transport"><title>stations to transport_bookings</title><path d="M530 1088 L630 1088" class="rel"/><g class="sym"><line x1="541" y1="1094" x2="541" y2="1082"/><line x1="615" y1="1088" x2="630" y2="1095"/><line x1="615" y1="1088" x2="630" y2="1088"/><line x1="615" y1="1088" x2="630" y2="1081"/></g><text x="580" y="1083" text-anchor="middle" class="elab">to</text></g>
+<g class="edge transport"><title>transport_bookings to flight_details</title><path d="M862 1070 L927 1070 L927 962 L990 962" class="rel"/><g class="sym"><line x1="979" y1="956" x2="979" y2="968"/></g><polygon points="862,1070 877,1078 877,1062" class="isa"/></g>
+<g class="edge transport"><title>transport_bookings to train_details</title><path d="M862 1070 L927 1070 L927 1024 L990 1024" class="rel"/><g class="sym"><line x1="979" y1="1018" x2="979" y2="1030"/></g><polygon points="862,1070 877,1078 877,1062" class="isa"/></g>
+<g class="edge transport"><title>transport_bookings to bus_details</title><path d="M862 1070 L927 1070 L927 1086 L990 1086" class="rel"/><g class="sym"><line x1="979" y1="1080" x2="979" y2="1092"/></g><polygon points="862,1070 877,1078 877,1062" class="isa"/></g>
+<g class="edge transport"><title>transport_bookings to cab_details</title><path d="M862 1070 L927 1070 L927 1148 L990 1148" class="rel"/><g class="sym"><line x1="979" y1="1142" x2="979" y2="1154"/></g><polygon points="862,1070 877,1078 877,1062" class="isa"/></g>
+<g class="edge transport"><title>transport_bookings to metro_details</title><path d="M862 1070 L927 1070 L927 1210 L990 1210" class="rel"/><g class="sym"><line x1="979" y1="1204" x2="979" y2="1216"/></g><polygon points="862,1070 877,1078 877,1062" class="isa"/></g>
+<g class="edge transport"><title>transport_bookings to transport_passengers</title><path d="M746 1150 L746 1246" class="rel"/><g class="sym"><line x1="740" y1="1161" x2="752" y2="1161"/><line x1="746" y1="1231" x2="739" y2="1246"/><line x1="746" y1="1231" x2="746" y2="1246"/><line x1="746" y1="1231" x2="753" y2="1246"/></g></g>
+<g class="edge transport"><title>users to transport_passengers</title><path d="M180 373 L32 373 L32 1290 L630 1290" class="rel"/><g class="sym"><line x1="169" y1="367" x2="169" y2="379"/><line x1="615" y1="1290" x2="630" y2="1297"/><line x1="615" y1="1290" x2="630" y2="1290"/><line x1="615" y1="1290" x2="630" y2="1283"/></g></g>
+<g class="edge hotel"><title>places to hotels</title><path d="M740 55 L1295 55 L1295 1505 L1250 1505" class="rel"/><g class="sym"><line x1="1261" y1="1511" x2="1261" y2="1499"/></g><polygon points="740,55 755,63 755,47" class="isa"/></g>
+<g class="edge hotel"><title>amenities to hotel_amenities</title><path d="M960 1700 L1050 1700" class="rel"/><g class="sym"><line x1="971" y1="1706" x2="971" y2="1694"/><line x1="1035" y1="1700" x2="1050" y2="1707"/><line x1="1035" y1="1700" x2="1050" y2="1700"/><line x1="1035" y1="1700" x2="1050" y2="1693"/></g></g>
+<g class="edge hotel"><title>hotels to hotel_amenities</title><path d="M1150 1531 L1150 1665" class="rel"/><g class="sym"><line x1="1144" y1="1542" x2="1156" y2="1542"/><line x1="1150" y1="1650" x2="1143" y2="1665"/><line x1="1150" y1="1650" x2="1150" y2="1665"/><line x1="1150" y1="1650" x2="1157" y2="1665"/></g></g>
+<g class="edge hotel"><title>hotel_reservations to hotel_payments</title><path d="M280 1558 L280 1665" class="rel"/><g class="sym"><line x1="274" y1="1569" x2="286" y2="1569"/><line x1="280" y1="1650" x2="273" y2="1665"/><line x1="280" y1="1650" x2="280" y2="1665"/><line x1="280" y1="1650" x2="287" y2="1665"/></g></g>
+<g class="edge hotel"><title>users to hotel_reservations</title><path d="M180 337 L8 337 L8 1505 L180 1505" class="rel"/><g class="sym"><line x1="169" y1="331" x2="169" y2="343"/><line x1="165" y1="1505" x2="180" y2="1512"/><line x1="165" y1="1505" x2="180" y2="1505"/><line x1="165" y1="1505" x2="180" y2="1498"/></g></g>
+<g class="edge hotel"><title>rooms to hotel_reservations</title><path d="M470 1505 L380 1505" class="rel"/><g class="sym"><line x1="459" y1="1499" x2="459" y2="1511"/><line x1="395" y1="1505" x2="380" y2="1498"/><line x1="395" y1="1505" x2="380" y2="1505"/><line x1="395" y1="1505" x2="380" y2="1512"/></g></g>
+<g class="edge hotel"><title>trips to hotel_reservations</title><path d="M280 586 L280 1452" class="rel"/><g class="sym"><line x1="274" y1="597" x2="286" y2="597"/><line x1="280" y1="1437" x2="273" y2="1452"/><line x1="280" y1="1437" x2="280" y2="1452"/><line x1="280" y1="1437" x2="287" y2="1452"/></g></g>
+<g class="edge hotel"><title>hotel_reservations to hotel_reviews</title><path d="M358.8 1558 L531.3 1674" class="rel"/><g class="sym"><line x1="364.6" y1="1569.1" x2="371.3" y2="1559.2"/><line x1="525.6" y1="1662.9" x2="518.9" y2="1672.8"/></g></g>
+<g class="edge hotel"><title>room_types to rooms</title><path d="M760 1505 L670 1505" class="rel"/><g class="sym"><line x1="749" y1="1499" x2="749" y2="1511"/><line x1="685" y1="1505" x2="670" y2="1498"/><line x1="685" y1="1505" x2="670" y2="1505"/><line x1="685" y1="1505" x2="670" y2="1512"/></g></g>
+<g class="edge hotel"><title>hotels to room_types</title><path d="M1050 1505 L960 1505" class="rel"/><g class="sym"><line x1="1039" y1="1499" x2="1039" y2="1511"/><line x1="975" y1="1505" x2="960" y2="1498"/><line x1="975" y1="1505" x2="960" y2="1505"/><line x1="975" y1="1505" x2="960" y2="1512"/></g></g>
+<g class="ent core"><rect x="180" y="329" width="200" height="52" rx="4" class="box"/><path d="M180 355 V333 a4 4 0 0 1 4 -4 H376 a4 4 0 0 1 4 4 V355 z" class="head"/><text x="190" y="346.5" class="name">users</text><text x="190" y="371" class="tag k">PK</text><text x="232" y="371" class="col">user_id</text></g>
+<g class="ent core"><rect x="180" y="29" width="200" height="52" rx="4" class="box"/><path d="M180 55 V33 a4 4 0 0 1 4 -4 H376 a4 4 0 0 1 4 4 V55 z" class="head"/><text x="190" y="46.5" class="name">destinations</text><text x="190" y="71" class="tag k">PK</text><text x="232" y="71" class="col">destination_id</text></g>
+<g class="ent core"><rect x="540" y="20" width="200" height="70" rx="4" class="box"/><path d="M540 46 V24 a4 4 0 0 1 4 -4 H736 a4 4 0 0 1 4 4 V46 z" class="head"/><text x="550" y="37.5" class="name">places</text><text x="550" y="62" class="tag k">PK</text><text x="592" y="62" class="col">place_id</text><text x="550" y="80" class="tag f">FK</text><text x="592" y="80" class="col">destination_id</text></g>
+<g class="ent core"><rect x="60" y="170" width="200" height="70" rx="4" class="box"/><path d="M60 196 V174 a4 4 0 0 1 4 -4 H256 a4 4 0 0 1 4 4 V196 z" class="head"/><text x="70" y="187.5" class="name">reviews</text><text x="70" y="212" class="tag k">PK FK</text><text x="112" y="212" class="col">user_id</text><text x="70" y="230" class="tag k">PK FK</text><text x="112" y="230" class="col">destination_id</text></g>
+<g class="ent core"><rect x="300" y="170" width="200" height="70" rx="4" class="box"/><path d="M300 196 V174 a4 4 0 0 1 4 -4 H496 a4 4 0 0 1 4 4 V196 z" class="head"/><text x="310" y="187.5" class="name">saved_destinations</text><text x="310" y="212" class="tag k">PK FK</text><text x="352" y="212" class="col">user_id</text><text x="310" y="230" class="tag k">PK FK</text><text x="352" y="230" class="col">destination_id</text></g>
+<g class="ent core"><rect x="180" y="516" width="200" height="70" rx="4" class="box"/><path d="M180 542 V520 a4 4 0 0 1 4 -4 H376 a4 4 0 0 1 4 4 V542 z" class="head"/><text x="190" y="533.5" class="name">trips</text><text x="190" y="558" class="tag k">PK</text><text x="232" y="558" class="col">trip_id</text><text x="190" y="576" class="tag f">FK</text><text x="232" y="576" class="col">owner_id</text></g>
+<g class="ent core"><rect x="430" y="380" width="200" height="70" rx="4" class="box"/><path d="M430 406 V384 a4 4 0 0 1 4 -4 H626 a4 4 0 0 1 4 4 V406 z" class="head"/><text x="440" y="397.5" class="name">trip_members</text><text x="440" y="422" class="tag k">PK FK</text><text x="482" y="422" class="col">trip_id</text><text x="440" y="440" class="tag k">PK FK</text><text x="482" y="440" class="col">user_id</text></g>
+<g class="ent core"><rect x="540" y="516" width="200" height="70" rx="4" class="box"/><path d="M540 542 V520 a4 4 0 0 1 4 -4 H736 a4 4 0 0 1 4 4 V542 z" class="head"/><text x="550" y="533.5" class="name">itinerary_days</text><text x="550" y="558" class="tag k">PK</text><text x="592" y="558" class="col">day_id</text><text x="550" y="576" class="tag f">FK</text><text x="592" y="576" class="col">trip_id</text></g>
+<g class="ent core"><rect x="800" y="498" width="200" height="106" rx="4" class="box"/><path d="M800 524 V502 a4 4 0 0 1 4 -4 H996 a4 4 0 0 1 4 4 V524 z" class="head"/><text x="810" y="515.5" class="name">itinerary_items</text><text x="810" y="540" class="tag k">PK</text><text x="852" y="540" class="col">item_id</text><text x="810" y="558" class="tag f">FK</text><text x="852" y="558" class="col">day_id</text><text x="810" y="576" class="tag f">FK</text><text x="852" y="576" class="col">category_id</text><text x="810" y="594" class="tag f">FK</text><text x="852" y="594" class="col">place_id</text></g>
+<g class="ent core"><rect x="1060" y="525" width="200" height="52" rx="4" class="box"/><path d="M1060 551 V529 a4 4 0 0 1 4 -4 H1256 a4 4 0 0 1 4 4 V551 z" class="head"/><text x="1070" y="542.5" class="name">activity_categories</text><text x="1070" y="567" class="tag k">PK</text><text x="1112" y="567" class="col">category_id</text></g>
+<g class="ent core"><rect x="1060" y="365" width="200" height="70" rx="4" class="box"/><path d="M1060 391 V369 a4 4 0 0 1 4 -4 H1256 a4 4 0 0 1 4 4 V391 z" class="head"/><text x="1070" y="382.5" class="name">bookings</text><text x="1070" y="407" class="tag k">PK</text><text x="1112" y="407" class="col">booking_id</text><text x="1070" y="425" class="tag f">FK</text><text x="1112" y="425" class="col">item_id</text></g>
+<g class="ent core"><rect x="540" y="678" width="200" height="124" rx="4" class="box"/><path d="M540 704 V682 a4 4 0 0 1 4 -4 H736 a4 4 0 0 1 4 4 V704 z" class="head"/><text x="550" y="695.5" class="name">expenses</text><text x="550" y="720" class="tag k">PK</text><text x="592" y="720" class="col">expense_id</text><text x="550" y="738" class="tag f">FK</text><text x="592" y="738" class="col">trip_id</text><text x="550" y="756" class="tag f">FK</text><text x="592" y="756" class="col">item_id</text><text x="550" y="774" class="tag f">FK</text><text x="592" y="774" class="col">expense_category_id</text><text x="550" y="792" class="tag f">FK</text><text x="592" y="792" class="col">paid_by</text></g>
+<g class="ent core"><rect x="1060" y="714" width="200" height="52" rx="4" class="box"/><path d="M1060 740 V718 a4 4 0 0 1 4 -4 H1256 a4 4 0 0 1 4 4 V740 z" class="head"/><text x="1070" y="731.5" class="name">expense_categories</text><text x="1070" y="756" class="tag k">PK</text><text x="1112" y="756" class="col">expense_category_id</text></g>
+<g class="ent smart"><rect x="60" y="705" width="200" height="70" rx="4" class="box"/><path d="M60 731 V709 a4 4 0 0 1 4 -4 H256 a4 4 0 0 1 4 4 V731 z" class="head"/><text x="70" y="722.5" class="name">trip_alerts</text><text x="70" y="747" class="tag k">PK</text><text x="112" y="747" class="col">alert_id</text><text x="70" y="765" class="tag f">FK</text><text x="112" y="765" class="col">trip_id</text></g>
+<g class="ent smart"><rect x="990" y="1304" width="200" height="52" rx="4" class="box"/><path d="M990 1330 V1308 a4 4 0 0 1 4 -4 H1186 a4 4 0 0 1 4 4 V1330 z" class="head"/><text x="1000" y="1321.5" class="name">audit_log</text><text x="1000" y="1346" class="tag k">PK</text><text x="1042" y="1346" class="col">audit_id</text></g>
+<g class="ent transport"><rect x="360" y="914" width="200" height="52" rx="4" class="box"/><path d="M360 940 V918 a4 4 0 0 1 4 -4 H556 a4 4 0 0 1 4 4 V940 z" class="head"/><text x="370" y="931.5" class="name">carriers</text><text x="370" y="956" class="tag k">PK</text><text x="412" y="956" class="col">carrier_id</text></g>
+<g class="ent transport"><rect x="330" y="1044" width="200" height="52" rx="4" class="box"/><path d="M330 1070 V1048 a4 4 0 0 1 4 -4 H526 a4 4 0 0 1 4 4 V1070 z" class="head"/><text x="340" y="1061.5" class="name">stations</text><text x="340" y="1086" class="tag k">PK</text><text x="382" y="1086" class="col">station_id</text></g>
+<g class="ent transport"><rect x="630" y="990" width="232" height="160" rx="4" class="box"/><path d="M630 1016 V994 a4 4 0 0 1 4 -4 H858 a4 4 0 0 1 4 4 V1016 z" class="head"/><text x="640" y="1007.5" class="name">transport_bookings</text><text x="640" y="1032" class="tag k">PK</text><text x="682" y="1032" class="col">transport_id</text><text x="640" y="1050" class="tag f">FK</text><text x="682" y="1050" class="col">trip_id</text><text x="640" y="1068" class="tag f">FK</text><text x="682" y="1068" class="col">item_id</text><text x="640" y="1086" class="tag f">FK</text><text x="682" y="1086" class="col">carrier_id</text><text x="640" y="1104" class="tag f">FK</text><text x="682" y="1104" class="col">booked_by</text><text x="640" y="1122" class="tag f">FK</text><text x="682" y="1122" class="col">origin_station_id</text><text x="640" y="1140" class="tag f">FK</text><text x="682" y="1140" class="col">destination_station_id</text></g>
+<g class="ent transport"><rect x="990" y="936" width="200" height="52" rx="4" class="box"/><path d="M990 962 V940 a4 4 0 0 1 4 -4 H1186 a4 4 0 0 1 4 4 V962 z" class="head"/><text x="1000" y="953.5" class="name">flight_details</text><text x="1000" y="978" class="tag k">PK FK</text><text x="1042" y="978" class="col">transport_id</text></g>
+<g class="ent transport"><rect x="990" y="998" width="200" height="52" rx="4" class="box"/><path d="M990 1024 V1002 a4 4 0 0 1 4 -4 H1186 a4 4 0 0 1 4 4 V1024 z" class="head"/><text x="1000" y="1015.5" class="name">train_details</text><text x="1000" y="1040" class="tag k">PK FK</text><text x="1042" y="1040" class="col">transport_id</text></g>
+<g class="ent transport"><rect x="990" y="1060" width="200" height="52" rx="4" class="box"/><path d="M990 1086 V1064 a4 4 0 0 1 4 -4 H1186 a4 4 0 0 1 4 4 V1086 z" class="head"/><text x="1000" y="1077.5" class="name">bus_details</text><text x="1000" y="1102" class="tag k">PK FK</text><text x="1042" y="1102" class="col">transport_id</text></g>
+<g class="ent transport"><rect x="990" y="1122" width="200" height="52" rx="4" class="box"/><path d="M990 1148 V1126 a4 4 0 0 1 4 -4 H1186 a4 4 0 0 1 4 4 V1148 z" class="head"/><text x="1000" y="1139.5" class="name">cab_details</text><text x="1000" y="1164" class="tag k">PK FK</text><text x="1042" y="1164" class="col">transport_id</text></g>
+<g class="ent transport"><rect x="990" y="1184" width="200" height="52" rx="4" class="box"/><path d="M990 1210 V1188 a4 4 0 0 1 4 -4 H1186 a4 4 0 0 1 4 4 V1210 z" class="head"/><text x="1000" y="1201.5" class="name">metro_details</text><text x="1000" y="1226" class="tag k">PK FK</text><text x="1042" y="1226" class="col">transport_id</text></g>
+<g class="ent transport weak"><rect x="627" y="1243" width="238" height="94" rx="6" class="outer"/><rect x="630" y="1246" width="232" height="88" rx="4" class="box"/><path d="M630 1272 V1250 a4 4 0 0 1 4 -4 H858 a4 4 0 0 1 4 4 V1272 z" class="head"/><text x="640" y="1263.5" class="name">transport_passengers</text><text x="640" y="1288" class="tag k">PK FK</text><text x="682" y="1288" class="col">transport_id</text><text x="640" y="1306" class="tag k">PPK</text><text x="682" y="1306" class="col">passenger_no</text><text x="640" y="1324" class="tag f">FK</text><text x="682" y="1324" class="col">user_id</text></g>
+<g class="ent hotel"><rect x="180" y="1452" width="200" height="106" rx="4" class="box"/><path d="M180 1478 V1456 a4 4 0 0 1 4 -4 H376 a4 4 0 0 1 4 4 V1478 z" class="head"/><text x="190" y="1469.5" class="name">hotel_reservations</text><text x="190" y="1494" class="tag k">PK</text><text x="232" y="1494" class="col">reservation_id</text><text x="190" y="1512" class="tag f">FK</text><text x="232" y="1512" class="col">trip_id</text><text x="190" y="1530" class="tag f">FK</text><text x="232" y="1530" class="col">room_id</text><text x="190" y="1548" class="tag f">FK</text><text x="232" y="1548" class="col">booked_by</text></g>
+<g class="ent hotel"><rect x="470" y="1461" width="200" height="88" rx="4" class="box"/><path d="M470 1487 V1465 a4 4 0 0 1 4 -4 H666 a4 4 0 0 1 4 4 V1487 z" class="head"/><text x="480" y="1478.5" class="name">rooms</text><text x="480" y="1503" class="tag k">PK</text><text x="522" y="1503" class="col">room_id</text><text x="480" y="1521" class="tag f">FK</text><text x="522" y="1521" class="col">hotel_id</text><text x="480" y="1539" class="tag f">FK</text><text x="522" y="1539" class="col">room_type_id</text></g>
+<g class="ent hotel"><rect x="760" y="1470" width="200" height="70" rx="4" class="box"/><path d="M760 1496 V1474 a4 4 0 0 1 4 -4 H956 a4 4 0 0 1 4 4 V1496 z" class="head"/><text x="770" y="1487.5" class="name">room_types</text><text x="770" y="1512" class="tag k">PK</text><text x="812" y="1512" class="col">room_type_id</text><text x="770" y="1530" class="tag f">FK</text><text x="812" y="1530" class="col">hotel_id</text></g>
+<g class="ent hotel"><rect x="1050" y="1479" width="200" height="52" rx="4" class="box"/><path d="M1050 1505 V1483 a4 4 0 0 1 4 -4 H1246 a4 4 0 0 1 4 4 V1505 z" class="head"/><text x="1060" y="1496.5" class="name">hotels</text><text x="1060" y="1521" class="tag k">PK FK</text><text x="1102" y="1521" class="col">hotel_id</text></g>
+<g class="ent hotel weak"><rect x="177" y="1662" width="206" height="76" rx="6" class="outer"/><rect x="180" y="1665" width="200" height="70" rx="4" class="box"/><path d="M180 1691 V1669 a4 4 0 0 1 4 -4 H376 a4 4 0 0 1 4 4 V1691 z" class="head"/><text x="190" y="1682.5" class="name">hotel_payments</text><text x="190" y="1707" class="tag k">PK FK</text><text x="232" y="1707" class="col">reservation_id</text><text x="190" y="1725" class="tag k">PPK</text><text x="232" y="1725" class="col">payment_no</text></g>
+<g class="ent hotel weak"><rect x="467" y="1671" width="206" height="58" rx="6" class="outer"/><rect x="470" y="1674" width="200" height="52" rx="4" class="box"/><path d="M470 1700 V1678 a4 4 0 0 1 4 -4 H666 a4 4 0 0 1 4 4 V1700 z" class="head"/><text x="480" y="1691.5" class="name">hotel_reviews</text><text x="480" y="1716" class="tag k">PK FK</text><text x="522" y="1716" class="col">reservation_id</text></g>
+<g class="ent hotel"><rect x="760" y="1674" width="200" height="52" rx="4" class="box"/><path d="M760 1700 V1678 a4 4 0 0 1 4 -4 H956 a4 4 0 0 1 4 4 V1700 z" class="head"/><text x="770" y="1691.5" class="name">amenities</text><text x="770" y="1716" class="tag k">PK</text><text x="812" y="1716" class="col">amenity_id</text></g>
+<g class="ent hotel"><rect x="1050" y="1665" width="200" height="70" rx="4" class="box"/><path d="M1050 1691 V1669 a4 4 0 0 1 4 -4 H1246 a4 4 0 0 1 4 4 V1691 z" class="head"/><text x="1060" y="1682.5" class="name">hotel_amenities</text><text x="1060" y="1707" class="tag k">PK FK</text><text x="1102" y="1707" class="col">hotel_id</text><text x="1060" y="1725" class="tag k">PK FK</text><text x="1102" y="1725" class="col">amenity_id</text></g>
+</svg>
+  </div>
+</div>
+
+</body></html>
