@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Travel Itinerary &amp; Expense Organizer — DBMS Project</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #1c2430;
+    --line: #2a3441;
+    --ink: #e6edf3;
+    --muted: #8b98a9;
+    --accent: #3fb950;
+    --accent-2: #58a6ff;
+    --warn: #d29922;
+    --bad: #f85149;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    --ease: cubic-bezier(.2, .8, .2, 1);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  /* soft animated glow behind the page */
+  body::before {
+    content: ""; position: fixed; inset: -20%; z-index: -1; pointer-events: none;
+    background:
+      radial-gradient(40vw 40vw at 12% 8%, rgba(31,111,235,.14), transparent 60%),
+      radial-gradient(36vw 36vw at 88% 18%, rgba(35,134,54,.13), transparent 60%),
+      radial-gradient(30vw 30vw at 60% 92%, rgba(110,64,201,.10), transparent 60%);
+    animation: float 26s ease-in-out infinite alternate;
+  }
+  @keyframes float { from { transform: translate3d(0,0,0); } to { transform: translate3d(0,-3vh,0); } }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(18,24,31,.95), rgba(13,17,23,.95));
+    padding: 20px 28px;
+    backdrop-filter: blur(8px);
+  }
+  .head-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+  header h1 { margin: 0 0 4px; font-size: 20px; letter-spacing: -0.2px; }
+  header p { margin: 0; color: var(--muted); font-size: 13px; }
+  .who { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent-2), #6e40c9); color: #fff;
+    font-weight: 700; font-size: 13px; box-shadow: 0 0 0 2px rgba(88,166,255,.18);
+  }
+  .who .name { font-size: 13.5px; font-weight: 600; }
+  .who .role { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .counts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+  .chip {
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 5px 12px; font-size: 12.5px; color: var(--muted);
+    transition: transform .18s var(--ease), border-color .18s;
+  }
+  .chip:hover { transform: translateY(-1px); border-color: var(--accent-2); }
+  .chip b { color: var(--ink); font-family: var(--mono); }
+  .chip.ok b { color: var(--accent); }
+  .chip.bad b { color: var(--bad); }
+
+  nav {
+    display: flex; gap: 4px; flex-wrap: wrap; padding: 0 28px;
+    border-bottom: 1px solid var(--line); background: rgba(16,21,27,.9);
+    position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px);
+  }
+  nav button {
+    background: none; border: none; color: var(--muted); padding: 13px 14px;
+    font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent;
+    font-family: inherit; position: relative; transition: color .18s;
+  }
+  nav button::after {
+    content: ""; position: absolute; left: 14px; right: 14px; bottom: 0; height: 2px;
+    background: var(--accent); transform: scaleX(0); transform-origin: center;
+    transition: transform .25s var(--ease);
+  }
+  nav button:hover { color: var(--ink); }
+  nav button.active { color: var(--ink); }
+  nav button.active::after { transform: scaleX(1); }
+
+  main { padding: 26px 28px 80px; max-width: 1180px; }
+  section { display: none; }
+  section.active { display: block; animation: fadeUp .38s var(--ease) both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  h2 { font-size: 16px; margin: 0 0 4px; }
+  .lede { color: var(--muted); font-size: 13.5px; margin: 0 0 20px; max-width: 780px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px 18px; margin-bottom: 14px;
+    transition: transform .2s var(--ease), border-color .2s, box-shadow .2s;
+  }
+  .card:hover { transform: translateY(-2px); border-color: #35414f; box-shadow: 0 10px 26px rgba(0,0,0,.35); }
+  .card h3 { margin: 0 0 3px; font-size: 14.5px; display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .card .note { color: var(--muted); font-size: 12.5px; margin: 0 0 12px; }
+  .id {
+    font-family: var(--mono); font-size: 11.5px; background: var(--panel-2);
+    border: 1px solid var(--line); border-radius: 5px; padding: 1px 7px; color: var(--accent-2);
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td {
+    text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line);
+    white-space: nowrap; max-width: 340px; overflow: hidden; text-overflow: ellipsis;
+  }
+  th { color: var(--muted); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; }
+  tbody tr { transition: background .15s; }
+  tbody tr:hover { background: rgba(88,166,255,.07); }
+  tr:last-child td { border-bottom: none; }
+  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; animation: fadeUp .3s var(--ease) both; }
+  td.num, th.num { text-align: right; font-family: var(--mono); }
+
+  button.act, button.ghost {
+    border-radius: 7px; padding: 8px 15px; font-size: 13px; cursor: pointer;
+    font-family: inherit; position: relative; overflow: hidden;
+    transition: transform .12s var(--ease), filter .18s, border-color .18s, box-shadow .18s;
+  }
+  button.act {
+    background: linear-gradient(135deg, var(--accent), #2ea043); color: #06210f;
+    border: none; font-weight: 700;
+  }
+  button.act:hover { filter: brightness(1.08); box-shadow: 0 6px 18px rgba(63,185,80,.25); }
+  button.ghost { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); }
+  button.ghost:hover { border-color: var(--accent-2); }
+  button.act:active, button.ghost:active { transform: scale(.965); }
+  button:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+  button:disabled:hover { box-shadow: none; }
+  .ripple {
+    position: absolute; border-radius: 50%; transform: scale(0); pointer-events: none;
+    background: rgba(255,255,255,.45); animation: ripple .55s ease-out forwards;
+  }
+  @keyframes ripple { to { transform: scale(3.4); opacity: 0; } }
+
+  .row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 12px; }
+  label.f { font-size: 12.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+  input, select {
+    background: #0b1016; border: 1px solid var(--line); color: var(--ink);
+    border-radius: 6px; padding: 7px 9px; font-size: 13px; font-family: inherit; min-width: 90px;
+    transition: border-color .18s, box-shadow .18s;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(88,166,255,.14); }
+
+  pre {
+    background: #0b1016; border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; overflow-x: auto; font-family: var(--mono); font-size: 12px;
+    color: #a9b6c6; margin: 10px 0 0;
+  }
+  .pill { border-radius: 999px; padding: 2px 9px; font-size: 11.5px; font-weight: 600; }
+  .pass { background: rgba(63,185,80,.15); color: var(--accent); }
+  .fail { background: rgba(248,81,73,.15); color: var(--bad); }
+  .muted { color: var(--muted); }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .kv:last-child { border-bottom: none; }
+  .bar { height: 6px; background: var(--panel-2); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-2)); width: 0; transition: width .7s var(--ease); }
+  .err { color: var(--bad); font-family: var(--mono); font-size: 12.5px; }
+  details summary { cursor: pointer; color: var(--accent-2); font-size: 12.5px; margin-top: 8px; }
+
+  /* loading skeleton */
+  .skeleton { display: flex; flex-direction: column; gap: 7px; padding: 6px 0; }
+  .skeleton i {
+    display: block; height: 11px; border-radius: 4px;
+    background: linear-gradient(90deg, #1b222c 25%, #253040 37%, #1b222c 63%);
+    background-size: 400% 100%; animation: shimmer 1.3s ease-in-out infinite;
+  }
+  .skeleton i:nth-child(1) { width: 92%; } .skeleton i:nth-child(2) { width: 74%; }
+  .skeleton i:nth-child(3) { width: 84%; } .skeleton i:nth-child(4) { width: 62%; }
+  @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+
+  /* toasts */
+  #toasts { position: fixed; top: 16px; right: 16px; z-index: 100; display: flex; flex-direction: column; gap: 9px; }
+  .toast {
+    background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    border-radius: 9px; padding: 11px 14px; font-size: 13px; min-width: 230px; max-width: 340px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.45);
+    animation: slideIn .32s var(--ease) both;
+  }
+  .toast.bad { border-left-color: var(--bad); }
+  .toast.leaving { animation: slideOut .28s var(--ease) forwards; }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: none; } }
+  @keyframes slideOut { to { opacity: 0; transform: translateX(30px); } }
+
+  .spin { color: var(--muted); font-size: 13px; padding: 10px 0; }
+  .spin::before {
+    content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px; vertical-align: -1px;
+    border: 2px solid var(--line); border-top-color: var(--accent-2); border-radius: 50%;
+    animation: rotate .7s linear infinite;
+  }
+  @keyframes rotate { to { transform: rotate(360deg); } }
+  .locked { opacity: .5; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
+</head>
+<body>
+<div id="toasts"></div>
+
+<header>
+  <div class="head-top">
+    <div>
+      <h1>Travel Itinerary &amp; Expense Organizer</h1>
+      <p>MySQL relational database (32 tables, 41 FKs, 31 triggers, 4 views, 2 procedures) served through a FastAPI layer.</p>
+    </div>
+    <div class="who" id="who"></div>
+  </div>
+  <div class="counts" id="counts"><span class="chip">connecting…</span></div>
+</header>
+
+<nav id="nav">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="queries">Queries</button>
+  <button data-tab="rules">Rule lab</button>
+  <button data-tab="cascades">Referential actions</button>
+  <button data-tab="smart">Alerts &amp; audit</button>
+  <button data-tab="procs">Procedures</button>
+  <button data-tab="recs">Recommendations</button>
+</nav>
+
+<main>
+  <section id="overview" class="active">
+    <h2>Schema at a glance</h2>
+    <p class="lede">The database enforces its own rules. This page reads the live schema so you can see the acceptance counts, the object inventory and every trigger.</p>
+    <div class="grid">
+      <div class="card"><h3>Tables</h3><div id="ov-tables"></div></div>
+      <div class="card"><h3>Views &amp; procedures</h3><div id="ov-objects"></div></div>
+    </div>
+    <div class="card">
+      <h3>Triggers <span class="id" id="trig-count"></span></h3>
+      <p class="note">Click a trigger name to read its source — useful for the viva.</p>
+      <div id="ov-triggers"></div>
+    </div>
+    <div class="card">
+      <h3>Foreign keys and their referential actions <span class="id" id="fk-count"></span></h3>
+      <div id="ov-fks"></div>
+    </div>
+  </section>
+
+  <section id="queries">
+    <h2>The project's demo queries</h2>
+    <p class="lede">All 25 named queries from <code>02</code>, <code>04</code> and <code>06</code>, run against the live database. The expected result documented in the SQL file is shown with each one.</p>
+    <div id="query-list"></div>
+  </section>
+
+  <section id="rules">
+    <h2>Rule lab</h2>
+    <p class="lede">Every rule test from the demo files. Each statement runs inside a transaction that is always rolled back, so a test never changes the data. A test passes when MySQL rejects the statement with the documented error.</p>
+    <div class="row">
+      <button class="act" id="run-all-rules">Run all tests</button>
+      <span class="muted" id="rules-summary"></span>
+    </div>
+    <div id="rule-list"></div>
+  </section>
+
+  <section id="cascades">
+    <h2>CASCADE and SET NULL</h2>
+    <p class="lede">Referential actions demonstrated by counting child rows before and after a delete. Everything is rolled back afterwards.</p>
+    <div id="cascade-list"></div>
+  </section>
+
+  <section id="smart">
+    <h2>AFTER triggers: alerts and audit trail</h2>
+    <p class="lede">The smart layer reacts to changes. Both demos run in a rolled-back transaction.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Budget alerts</h3>
+        <p class="note" id="alerts-desc"></p>
+        <button class="act" id="run-alerts">Run alert demo</button>
+        <div id="alerts-out"></div>
+      </div>
+      <div class="card">
+        <h3>Audit trail</h3>
+        <p class="note" id="audit-desc"></p>
+        <button class="act" id="run-audit">Run audit demo</button>
+        <div id="audit-out"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="procs">
+    <h2>Stored procedures (transactions)</h2>
+    <p class="lede">Both procedures are all-or-nothing. <code>sp_create_trip</code> rolls the demo back by default so no rows are left behind; <code>sp_book_room</code> keeps its reservation so a second call can show the double-booking rejection.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>sp_create_trip</h3>
+        <p class="note">Creates a trip, adds the owner as a member with role 'owner', and one itinerary_days row per date.</p>
+        <div class="row">
+          <label class="f">owner<select id="ct-owner"></select></label>
+          <label class="f">title<input id="ct-title" value="Demo: Weekend in Udaipur" size="26"></label>
+          <label class="f">start<input id="ct-start" value="2027-02-05" size="11"></label>
+          <label class="f">end<input id="ct-end" value="2027-02-07" size="11"></label>
+          <label class="f">budget<input id="ct-budget" value="30000" size="8"></label>
+          <label class="f">keep<input type="checkbox" id="ct-keep"></label>
+        </div>
+        <button class="act" id="run-ct">Call sp_create_trip</button>
+        <div id="ct-out"></div>
+      </div>
+      <div class="card">
+        <h3>sp_book_room</h3>
+        <p class="note">Locks the room row with <code>FOR UPDATE</code>, inserts the reservation, and sets the confirmation code. Booking the same room twice on overlapping dates is rejected by the trigger.</p>
+        <div class="row">
+          <label class="f">trip<select id="br-trip"></select></label>
+          <label class="f">room<select id="br-room"></select></label>
+          <label class="f">booked by<select id="br-user"></select></label>
+          <label class="f">check-in<input id="br-in" value="2027-02-05" size="11"></label>
+          <label class="f">check-out<input id="br-out" value="2027-02-07" size="11"></label>
+          <label class="f">guests<input id="br-guests" value="2" size="4"></label>
+          <label class="f">keep<input type="checkbox" id="br-keep" checked></label>
+        </div>
+        <button class="act" id="run-br">Call sp_book_room</button>
+        <button class="ghost" id="cleanup">Clean up demo rows</button>
+        <div id="br-out"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="recs">
+    <h2>Destination recommendations</h2>
+    <p class="lede">Scores each destination a user has not visited, out of 100: quality 30, crowd 15, wishlist 15, personal taste 20, in-season 20. The repository documents this layer (script 07) but does not include it, so the model is implemented in <code>app/recommender.py</code> against the existing tables.</p>
+    <div class="row">
+      <label class="f">user<select id="rec-user"></select></label>
+      <label class="f">month<select id="rec-month"></select></label>
+      <button class="act" id="run-recs">Recommend</button>
+    </div>
+    <div id="recs-out"></div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let ME = null;
+const isAdmin = () => ME && ME.role === "admin";
+
+async function api(path, opts) {
+  const options = Object.assign({}, opts);
+  const method = (options.method || "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD") {
+    // Double-submit CSRF: echo the readable cookie in a header. A cross-site
+    // page cannot read the cookie, so it cannot forge this header.
+    options.headers = Object.assign({}, options.headers, { "X-CSRF-Token": readCookie("travel_csrf") });
+  }
+  const r = await fetch(path, options);
+  if (r.status === 401) { window.location.href = "/login"; throw new Error("Not signed in"); }
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(body.detail || r.statusText);
+  return body;
+}
+
+function readCookie(name) {
+  const hit = document.cookie.split("; ").find(c => c.startsWith(name + "="));
+  return hit ? decodeURIComponent(hit.split("=").slice(1).join("=")) : "";
+}
+
+/* ---------------- toasts + ripple ---------------- */
+function toast(msg, bad) {
+  const el = document.createElement("div");
+  el.className = "toast" + (bad ? " bad" : "");
+  el.textContent = msg;
+  $("#toasts").appendChild(el);
+  setTimeout(() => { el.classList.add("leaving"); setTimeout(() => el.remove(), 300); }, 3600);
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b || b.disabled) return;
+  const rect = b.getBoundingClientRect();
+  const size = Math.max(rect.width, rect.height);
+  const r = document.createElement("span");
+  r.className = "ripple";
+  r.style.width = r.style.height = size + "px";
+  r.style.left = (e.clientX - rect.left - size / 2) + "px";
+  r.style.top = (e.clientY - rect.top - size / 2) + "px";
+  b.appendChild(r);
+  setTimeout(() => r.remove(), 560);
+});
+
+function skeleton() { return '<div class="skeleton"><i></i><i></i><i></i><i></i></div>'; }
+
+function table(rows, columns) {
+  if (!rows || !rows.length) return '<div class="scroll"><table><tbody><tr><td class="muted">No rows.</td></tr></tbody></table></div>';
+  const cols = columns || Object.keys(rows[0]);
+  const head = cols.map(c => `<th>${esc(c)}</th>`).join("");
+  const body = rows.map(r => "<tr>" + cols.map(c => {
+    const v = r[c];
+    return `<td class="${typeof v === "number" ? "num" : ""}" title="${esc(v)}">${esc(v)}</td>`;
+  }).join("") + "</tr>").join("");
+  return `<div class="scroll"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+
+/* ---------------- header + session ---------------- */
+function countUp(el, to, ms) {
+  const from = Number(el.dataset.v || 0);
+  el.dataset.v = to;
+  if (from === to) { el.textContent = to; return; }
+  const start = performance.now();
+  (function step(now) {
+    const p = Math.min(1, (now - start) / ms);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = Math.round(from + (to - from) * eased);
+    if (p < 1) requestAnimationFrame(step);
+  })(start);
+}
+
+function renderWho() {
+  if (!ME) return;
+  const initials = ME.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
+  $("#who").innerHTML =
+    `<div class="avatar">${esc(initials)}</div>
+     <div><div class="name">${esc(ME.name)}</div><div class="role">${esc(ME.role)}</div></div>
+     <button class="ghost" id="dl">Download files</button>
+     <button class="ghost" id="out">Sign out</button>`;
+  $("#out").addEventListener("click", async () => {
+    await api("/api/auth/logout", { method: "POST" }).catch(() => {});
+    window.location.href = "/login";
+  });
+  $("#dl").addEventListener("click", () => {
+    window.location.href = "/api/bundle";
+    toast("Preparing travel-itinerary-app.zip");
+  });
+}
+
+async function loadHeader() {
+  try {
+    const h = await api("/api/health");
+    const c = h.counts || {};
+    const spec = { tables: 32, foreign_keys: 41, triggers: 31, views: 4 };
+    const parts = Object.entries(spec).map(([k, want]) => {
+      const got = c[k];
+      return `<span class="chip ${got === want ? "ok" : "bad"}">${k.replace("_", " ")} <b data-count="${got ?? 0}">0</b> / ${want}</span>`;
+    });
+    parts.unshift(`<span class="chip ok">MySQL <b>${esc(h.version)}</b></span>`);
+    parts.push(`<span class="chip">procedures <b>${c.procedures ?? "?"}</b></span>`);
+    $("#counts").innerHTML = parts.join("");
+    document.querySelectorAll("[data-count]").forEach(el => countUp(el, Number(el.dataset.count), 900));
+  } catch (e) {
+    $("#counts").innerHTML = `<span class="chip bad">database unreachable: <b>${esc(e.message)}</b></span>`;
+  }
+}
+
+/* ---------------- admin gating ---------------- */
+const ADMIN_ACTIONS = ["run-all-rules", "run-alerts", "run-audit", "run-ct", "run-br", "cleanup"];
+function applyGating() {
+  if (isAdmin()) return;
+  ADMIN_ACTIONS.forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.disabled = true; b.classList.add("locked"); b.title = "Requires an administrator account"; }
+  });
+  document.querySelectorAll("#rules [data-run], #cascades [data-casc]").forEach(b => {
+    b.disabled = true; b.classList.add("locked"); b.title = "Requires an administrator account";
+  });
+}
+
+/* ---------------- overview ---------------- */
+async function loadOverview() {
+  $("#ov-tables").innerHTML = skeleton();
+  const ov = await api("/api/overview");
+  const total = ov.tables.reduce((s, t) => s + (t.rows || 0), 0);
+  $("#ov-tables").innerHTML =
+    `<p class="note">${ov.tables.length} tables, ${total} rows in total</p>` + table(ov.tables, ["table_name", "rows"]);
+  const objs = [...ov.views.map(v => ({ kind: "view", name: v })),
+                ...ov.procedures.map(p => ({ kind: "procedure", name: p }))];
+  $("#ov-objects").innerHTML = table(objs, ["kind", "name"]);
+
+  const trigs = await api("/api/triggers");
+  $("#trig-count").textContent = trigs.length;
+  $("#ov-triggers").innerHTML = table(trigs, ["trigger_name", "on_table", "timing", "event"]);
+  $("#ov-triggers").querySelectorAll("tbody tr").forEach(tr => {
+    tr.style.cursor = "pointer";
+    tr.title = "Click to read the trigger source";
+    tr.addEventListener("click", async () => {
+      const name = tr.firstChild.textContent;
+      const d = await api(`/api/triggers/${encodeURIComponent(name)}`);
+      if (!d.source) { toast("No source available", true); return; }
+      const w = window.open("", "_blank");
+      w.document.write(`<title>${esc(name)}</title>
+        <body style="background:#0d1117;color:#e6edf3;font:13px/1.6 ui-monospace,monospace;padding:24px">
+        <h2 style="font-family:sans-serif">${esc(name)}</h2><pre>${esc(d.source)}</pre></body>`);
+      w.document.close();
+    });
+  });
+
+  const fks = await api("/api/fks");
+  $("#fk-count").textContent = fks.length;
+  $("#ov-fks").innerHTML = table(fks, ["table_name", "constraint_name", "referenced_table_name", "delete_rule", "update_rule"]);
+}
+
+/* ---------------- queries ---------------- */
+let QUERIES = [];
+async function loadQueries() {
+  QUERIES = await api("/api/queries");
+  $("#query-list").innerHTML = QUERIES.map(q => {
+    const inputs = (!q.hide_params && q.params && q.params.length && q.param_labels)
+      ? q.params.map((p, i) => `<label class="f">${esc(q.param_labels[i] || "param")}<input id="qp-${q.id}-${i}" value="${esc(p)}" size="10"></label>`).join("")
+      : "";
+    return `<div class="card">
+      <h3><span class="id">${esc(q.id)}</span> ${esc(q.title)} <span class="id">${esc(q.section)}</span></h3>
+      ${q.note ? `<p class="note">Expected: ${esc(q.note)}</p>` : ""}
+      <div class="row">${inputs}<button class="act" data-run="${esc(q.id)}">Run</button></div>
+      <div id="qout-${esc(q.id)}"></div>
+    </div>`;
+  }).join("");
+  $("#query-list").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-run]");
+    if (!btn || btn.disabled) return;
+    const id = btn.dataset.run;
+    const q = QUERIES.find(x => x.id === id);
+    const out = $("#qout-" + id);
+    out.innerHTML = skeleton();
+    let url = `/api/queries/${encodeURIComponent(id)}`;
+    if (!q.hide_params && q.params && q.params.length) {
+      url += "?params=" + encodeURIComponent(q.params.map((_, i) => $("#qp-" + id + "-" + i).value).join(","));
+    }
+    try {
+      const res = await api(url);
+      out.innerHTML = `<p class="note">${res.row_count} row(s)</p>` + table(res.rows, res.columns) +
+        `<details><summary>SQL</summary><pre>${esc(res.sql)}</pre></details>`;
+    } catch (err) { out.innerHTML = `<p class="err">${esc(err.message)}</p>`; }
+  });
+}
+
+/* ---------------- rules ---------------- */
+async function loadRules() {
+  const rules = await api("/api/rules");
+  $("#rule-list").innerHTML = rules.map(t => `<div class="card" id="rule-${esc(t.id)}">
+      <h3><span class="id">${esc(t.id)}</span> ${esc(t.title)}</h3>
+      <p class="note">${esc(t.section)} — expected ${esc(t.expect)}</p>
+      <div class="result"></div>
+    </div>`).join("");
+}
+async function runRules(ids) {
+  $("#rules-summary").textContent = "Running…";
+  const res = await api("/api/rules/run", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(ids || null),
+  });
+  for (const r of res.results) {
+    const el = $("#rule-" + r.id + " .result");
+    if (!el) continue;
+    el.innerHTML = `<span class="pill ${r.passed ? "pass" : "fail"}">${r.passed ? "REJECTED as expected" : "NOT rejected"}</span>` +
+      `<div class="muted" style="font-size:12px;margin-top:6px">actual: ${esc(r.actual || "statement succeeded")}</div>` +
+      `<details><summary>SQL</summary><pre>${esc(r.sql)}</pre></details>`;
+  }
+  $("#rules-summary").textContent = `${res.passed} / ${res.total} tests rejected as documented`;
+  toast(res.passed === res.total ? `All ${res.total} rule tests rejected as documented` : `${res.passed} of ${res.total} passed`,
+        res.passed !== res.total);
+}
+
+/* ---------------- cascades ---------------- */
+async function loadCascades() {
+  const demos = await api("/api/cascades");
+  $("#cascade-list").innerHTML = demos.map(d => `<div class="card">
+      <h3><span class="id">${esc(d.id)}</span> ${esc(d.title)}</h3>
+      <p class="note">${esc(d.description)}</p>
+      <button class="act" data-casc="${esc(d.id)}">Run</button>
+      <div id="cout-${esc(d.id)}"></div>
+    </div>`).join("");
+  $("#cascade-list").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-casc]");
+    if (!btn || btn.disabled) return;
+    const id = btn.dataset.casc;
+    const out = $("#cout-" + id);
+    out.innerHTML = skeleton();
+    try {
+      const r = await api(`/api/cascades/${encodeURIComponent(id)}/run`, { method: "POST" });
+      out.innerHTML = `<p class="note">before → after (delete affected ${r.delete_rowcount} row)</p>` +
+        `<div class="grid" style="margin-top:8px">` +
+        `<div><div class="muted" style="font-size:12px">before</div>${table(r.before)}</div>` +
+        `<div><div class="muted" style="font-size:12px">after</div>${table(r.after)}</div></div>`;
+    } catch (err) { out.innerHTML = `<p class="err">${esc(err.message)}</p>`; }
+  });
+}
+
+/* ---------------- alerts + audit ---------------- */
+async function runAlerts() {
+  const out = $("#alerts-out");
+  out.innerHTML = skeleton();
+  const r = await api("/api/alerts/run", { method: "POST" });
+  $("#alerts-desc").textContent = r.description;
+  out.innerHTML = `<div class="kv"><span class="muted">steps</span><span>${r.steps.length}</span></div>` +
+    `<div class="kv"><span class="muted">alerts raised</span><span>${r.alert_count}</span></div>` + table(r.alerts);
+  toast(`${r.alert_count} budget alerts raised (rolled back)`);
+}
+async function runAudit() {
+  const out = $("#audit-out");
+  out.innerHTML = skeleton();
+  const r = await api("/api/audit/run", { method: "POST" });
+  $("#audit-desc").textContent = r.description;
+  out.innerHTML = `<div class="kv"><span class="muted">audit rows written</span><span>${r.log_count}</span></div>` + table(r.log);
+  toast(`${r.log_count} audit rows written (rolled back)`);
+}
+
+/* ---------------- procedures ---------------- */
+async function loadRefData() {
+  const [users, trips, rooms] = await Promise.all([api("/api/users"), api("/api/trips"), api("/api/rooms")]);
+  const opts = (rows, f) => rows.map(r => `<option value="${r[Object.keys(r)[0]]}">${esc(f(r))}</option>`).join("");
+  $("#ct-owner").innerHTML = opts(users, u => `${u.full_name} (#${u.user_id})`);
+  $("#br-trip").innerHTML = opts(trips, t => `${t.title} (#${t.trip_id})`);
+  $("#br-user").innerHTML = opts(users, u => `${u.full_name} (#${u.user_id})`);
+  $("#br-room").innerHTML = opts(rooms, r => `#${r.room_id} ${r.hotel} ${r.room_number} (${r.status})`);
+  $("#br-room").value = "31";
+  $("#rec-user").innerHTML = opts(users, u => `${u.full_name} (#${u.user_id})`);
+  $("#rec-user").value = "2";
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  $("#rec-month").innerHTML = months.map((m, i) => `<option value="${i + 1}">${m}</option>`).join("");
+  $("#rec-month").value = "3";
+}
+async function runCreateTrip() {
+  const out = $("#ct-out");
+  out.innerHTML = skeleton();
+  const p = new URLSearchParams({
+    owner_id: $("#ct-owner").value, title: $("#ct-title").value,
+    start_date: $("#ct-start").value, end_date: $("#ct-end").value,
+    budget: $("#ct-budget").value, keep: $("#ct-keep").checked,
+  });
+  try {
+    const r = await api("/api/procedures/create-trip?" + p, { method: "POST" });
+    out.innerHTML = `<p class="note">trip #${r.new_trip_id} ${r.rolled_back ? "(rolled back)" : "(committed)"} — ` +
+      `${r.members.length} member row(s), ${r.days.length} day(s)</p>` + table(r.days);
+    toast(`sp_create_trip created trip #${r.new_trip_id}`);
+  } catch (e) { out.innerHTML = `<p class="err">${esc(e.message)}</p>`; toast(e.message, true); }
+}
+async function runBookRoom() {
+  const out = $("#br-out");
+  out.innerHTML = skeleton();
+  const p = new URLSearchParams({
+    trip_id: $("#br-trip").value, room_id: $("#br-room").value, booked_by: $("#br-user").value,
+    check_in: $("#br-in").value, check_out: $("#br-out").value, guests: $("#br-guests").value,
+    keep: $("#br-keep").checked,
+  });
+  try {
+    const r = await api("/api/procedures/book-room?" + p, { method: "POST" });
+    out.innerHTML = `<p class="note">reservation #${r.reservation_id} ${r.rolled_back ? "(rolled back)" : "(committed)"} — ` +
+      `call again with overlapping dates to see the trigger reject it</p>` + table(r.summary);
+    toast(`Reservation #${r.reservation_id} created`);
+  } catch (e) { out.innerHTML = `<p class="err">${esc(e.message)}</p>`; toast(e.message, true); }
+}
+async function cleanup() {
+  const out = $("#br-out");
+  out.innerHTML = skeleton();
+  const r = await api("/api/procedures/cleanup", { method: "POST" });
+  out.innerHTML = `<p class="note">Removed ${r.count} demo trip(s).</p>`;
+  toast(`Removed ${r.count} demo trip(s)`);
+}
+
+/* ---------------- recommendations ---------------- */
+async function runRecs() {
+  const out = $("#recs-out");
+  out.innerHTML = skeleton();
+  const r = await api(`/api/recommendations?user_id=${$("#rec-user").value}&month=${$("#rec-month").value}&limit=10`);
+  const rows = r.results.map(d => `<div class="card">
+      <h3>${esc(d.name)} <span class="id">${d.score} / 100</span></h3>
+      <p class="note">${esc(d.country)} — best season: ${esc(d.best_season || "n/a")}${d.in_season ? " · <b>in season</b>" : ""}</p>
+      <div class="kv"><span class="muted">quality ${d.breakdown.quality} · crowd ${d.breakdown.crowd} · wishlist ${d.breakdown.wishlist} · taste ${d.breakdown.taste} · season ${d.breakdown.season}</span></div>
+      <div class="bar"><span data-w="${d.score}"></span></div>
+      ${d.reasons.length ? `<p class="note" style="margin-top:8px">${esc(d.reasons.join(", "))}</p>` : ""}
+    </div>`).join("");
+  out.innerHTML = `<p class="lede">${esc(r.month_name)} suggestions for user #${r.user_id}. ` +
+    `Visited (excluded): ${r.visited_destination_ids.length} destination(s).</p>` + rows;
+  requestAnimationFrame(() => out.querySelectorAll(".bar span").forEach(b => { b.style.width = b.dataset.w + "%"; }));
+}
+
+/* ---------------- wiring ---------------- */
+document.querySelectorAll("#nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    $("#" + btn.dataset.tab).classList.add("active");
+  });
+});
+$("#run-all-rules").addEventListener("click", () => runRules(null));
+$("#run-alerts").addEventListener("click", runAlerts);
+$("#run-audit").addEventListener("click", runAudit);
+$("#run-ct").addEventListener("click", runCreateTrip);
+$("#run-br").addEventListener("click", runBookRoom);
+$("#cleanup").addEventListener("click", cleanup);
+$("#run-recs").addEventListener("click", runRecs);
+
+(async function init() {
+  try {
+    ME = (await api("/api/auth/me")).user;
+  } catch { return; }
+  // A session can outlive the CSRF cookie; make sure one exists for writes.
+  if (!readCookie("travel_csrf")) {
+    try { await api("/api/auth/csrf"); } catch {}
+  }
+  renderWho();
+  applyGating();
+  await loadHeader();
+  await Promise.all([loadOverview(), loadQueries(), loadRules(), loadCascades(), loadRefData()]);
+  if (!isAdmin()) toast("Signed in as a viewer: data-changing demos are disabled", true);
+})();
+</script>
+</body>
+</html>

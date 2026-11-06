@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Sign in — Travel Itinerary &amp; Expense Organizer</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: rgba(22, 27, 34, .82);
+    --line: #2a3441;
+    --ink: #e6edf3;
+    --muted: #8b98a9;
+    --accent: #3fb950;
+    --accent-2: #58a6ff;
+    --bad: #f85149;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--ink); overflow: hidden;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    display: grid; place-items: center;
+  }
+  /* animated aurora background */
+  .aurora { position: fixed; inset: -30%; z-index: 0; filter: blur(90px); opacity: .5; }
+  .aurora i {
+    position: absolute; display: block; border-radius: 50%;
+    animation: drift 22s ease-in-out infinite alternate;
+  }
+  .aurora i:nth-child(1) { width: 46vw; height: 46vw; background: #1f6feb; top: 6%; left: 4%; }
+  .aurora i:nth-child(2) { width: 38vw; height: 38vw; background: #238636; top: 44%; left: 46%; animation-delay: -7s; }
+  .aurora i:nth-child(3) { width: 30vw; height: 30vw; background: #6e40c9; top: 12%; left: 58%; animation-delay: -13s; }
+  @keyframes drift {
+    from { transform: translate3d(0,0,0) scale(1); }
+    to   { transform: translate3d(6vw, -5vh, 0) scale(1.18); }
+  }
+
+  .card {
+    position: relative; z-index: 1; width: min(420px, 92vw);
+    background: var(--panel); backdrop-filter: blur(18px);
+    border: 1px solid var(--line); border-radius: 16px;
+    padding: 34px 30px 28px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.5);
+    animation: rise .6s cubic-bezier(.2,.8,.2,1) both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(22px) scale(.98); } to { opacity: 1; transform: none; } }
+  .badge {
+    width: 46px; height: 46px; border-radius: 13px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), #1f6feb); margin-bottom: 16px;
+    font-size: 22px; animation: pop .7s cubic-bezier(.2,1.4,.4,1) both .15s;
+  }
+  @keyframes pop { from { transform: scale(.4) rotate(-12deg); opacity: 0; } to { transform: none; opacity: 1; } }
+  h1 { margin: 0 0 6px; font-size: 19px; letter-spacing: -.2px; }
+  p.sub { margin: 0 0 22px; color: var(--muted); font-size: 13.5px; }
+  label { display: block; font-size: 12.5px; color: var(--muted); margin: 0 0 6px; }
+  .field { position: relative; margin-bottom: 15px; }
+  input {
+    width: 100%; background: #0b1016; border: 1px solid var(--line); color: var(--ink);
+    border-radius: 9px; padding: 11px 12px; font-size: 14px; font-family: inherit;
+    transition: border-color .18s, box-shadow .18s, transform .18s;
+  }
+  input:focus { outline: none; border-color: var(--accent-2); box-shadow: 0 0 0 3px rgba(88,166,255,.16); }
+  button {
+    width: 100%; margin-top: 6px; border: none; border-radius: 9px; cursor: pointer;
+    background: linear-gradient(135deg, var(--accent), #2ea043); color: #06210f;
+    font-weight: 700; font-size: 14.5px; padding: 12px; font-family: inherit;
+    transition: transform .12s, filter .18s, box-shadow .18s;
+    position: relative; overflow: hidden;
+  }
+  button:hover { filter: brightness(1.08); box-shadow: 0 8px 24px rgba(63,185,80,.28); }
+  button:active { transform: scale(.975); }
+  button:disabled { opacity: .6; cursor: progress; }
+  .ripple {
+    position: absolute; border-radius: 50%; transform: scale(0); pointer-events: none;
+    background: rgba(255,255,255,.5); animation: ripple .55s ease-out forwards;
+  }
+  @keyframes ripple { to { transform: scale(3.2); opacity: 0; } }
+  .err {
+    margin-top: 14px; padding: 10px 12px; border-radius: 8px; font-size: 13px;
+    background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.35); color: #ffb4ae;
+    animation: shake .4s;
+  }
+  @keyframes shake {
+    10%, 90% { transform: translateX(-1px); } 20%, 80% { transform: translateX(2px); }
+    30%, 50%, 70% { transform: translateX(-3px); } 40%, 60% { transform: translateX(3px); }
+  }
+  .hint { margin: 6px 0 0; font-size: 11.5px; color: var(--muted); }
+  .swap { margin: 14px 0 0; font-size: 13px; color: var(--muted); text-align: center; }
+  .link {
+    background: none; border: none; color: var(--accent-2); cursor: pointer;
+    font-family: inherit; font-size: 13px; font-weight: 600; padding: 2px 4px;
+    width: auto; margin: 0; text-decoration: underline; text-underline-offset: 2px;
+  }
+  .link:hover { color: #9dc7ff; filter: none; box-shadow: none; }
+  .link:active { transform: none; }
+  .demo { margin-top: 20px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .demo p { margin: 0 0 9px; font-size: 12px; color: var(--muted); }
+  .demo button.pill {
+    width: auto; margin: 0 6px 6px 0; padding: 6px 11px; font-size: 12px; font-weight: 600;
+    background: rgba(88,166,255,.12); color: #9dc7ff; border: 1px solid rgba(88,166,255,.3);
+    box-shadow: none; transition: background .18s, transform .12s;
+  }
+  .demo button.pill:hover { background: rgba(88,166,255,.22); filter: none; }
+  .demo button.pill:active { transform: scale(.95); }
+  .spin {
+    display: inline-block; width: 13px; height: 13px; margin-right: 7px; vertical-align: -2px;
+    border: 2px solid rgba(0,0,0,.25); border-top-color: #06210f; border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .aurora i, .card, .badge, .err { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="aurora"><i></i><i></i><i></i></div>
+
+<form class="card" id="form" autocomplete="on">
+  <div class="badge">✈</div>
+  <h1>Travel Itinerary &amp; Expense Organizer</h1>
+  <p class="sub">Sign in to open the database dashboard. Accounts are the project's own sample users.</p>
+
+  <div class="field">
+    <label for="email">E-mail</label>
+    <input id="email" name="email" type="email" required autocomplete="username"
+           placeholder="priya.nair@example.com" />
+  </div>
+  <div class="field" id="name-field" hidden>
+    <label for="name">Full name</label>
+    <input id="name" name="name" type="text" autocomplete="name" placeholder="Your name" />
+  </div>
+  <div class="field">
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" required autocomplete="current-password"
+           placeholder="••••••••" />
+    <p class="hint" id="pw-hint" hidden>At least 8 characters, and not your e-mail name.</p>
+  </div>
+
+  <button type="submit" id="submit">Sign in</button>
+  <div id="error"></div>
+
+  <p class="swap">
+    <span id="swap-text">New here?</span>
+    <button type="button" class="link" id="swap">Create an account</button>
+  </p>
+
+  <div class="demo" id="demo">
+    <p>Demo accounts — click to fill (passwords come from the project's seed data):</p>
+    <button type="button" class="pill" data-e="aarav.sharma@example.com" data-p="Aarav@123">Aarav Sharma · admin</button>
+    <button type="button" class="pill" data-e="priya.nair@example.com" data-p="Priya@123">Priya Nair · user</button>
+  </div>
+</form>
+
+<script>
+const form = document.getElementById("form");
+const errBox = document.getElementById("error");
+const submit = document.getElementById("submit");
+let mode = "login"; // or "register"
+
+document.getElementById("swap").addEventListener("click", () => {
+  mode = mode === "login" ? "register" : "login";
+  const isReg = mode === "register";
+  document.getElementById("name-field").hidden = !isReg;
+  document.getElementById("name").required = isReg;
+  document.getElementById("pw-hint").hidden = !isReg;
+  document.getElementById("demo").hidden = isReg;
+  document.getElementById("password").setAttribute("autocomplete", isReg ? "new-password" : "current-password");
+  submit.textContent = isReg ? "Create account" : "Sign in";
+  document.getElementById("swap-text").textContent = isReg ? "Already have an account?" : "New here?";
+  document.getElementById("swap").textContent = isReg ? "Sign in" : "Create an account";
+  document.querySelector("h1").textContent = isReg
+    ? "Create your account" : "Travel Itinerary & Expense Organizer";
+  document.querySelector("p.sub").textContent = isReg
+    ? "New accounts are created as normal users. Administrator accounts are not issued through this form."
+    : "Sign in to open the database dashboard. Accounts are the project's own sample users.";
+  errBox.innerHTML = "";
+});
+
+document.querySelectorAll(".pill").forEach(b => {
+  b.addEventListener("click", () => {
+    document.getElementById("email").value = b.dataset.e;
+    document.getElementById("password").value = b.dataset.p;
+    document.getElementById("password").focus();
+  });
+});
+
+document.querySelectorAll("button").forEach(b => {
+  b.addEventListener("click", (e) => {
+    const rect = b.getBoundingClientRect();
+    const r = document.createElement("span");
+    r.className = "ripple";
+    const size = Math.max(rect.width, rect.height);
+    r.style.width = r.style.height = size + "px";
+    r.style.left = (e.clientX - rect.left - size / 2) + "px";
+    r.style.top = (e.clientY - rect.top - size / 2) + "px";
+    b.appendChild(r);
+    setTimeout(() => r.remove(), 560);
+  });
+});
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  errBox.innerHTML = "";
+  const isReg = mode === "register";
+  submit.disabled = true;
+  submit.innerHTML = '<span class="spin"></span>' + (isReg ? "Creating…" : "Signing in…");
+  try {
+    const url = isReg ? "/api/auth/register" : "/api/auth/login";
+    const payload = isReg
+      ? { full_name: document.getElementById("name").value,
+          email: document.getElementById("email").value,
+          password: document.getElementById("password").value }
+      : { email: document.getElementById("email").value,
+          password: document.getElementById("password").value };
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.detail || "Request failed");
+    window.location.href = "/";
+  } catch (err) {
+    errBox.innerHTML = `<div class="err">${String(err.message).replace(/[<>&]/g, "")}</div>`;
+    submit.disabled = false;
+    submit.textContent = isReg ? "Create account" : "Sign in";
+  }
+});
+
+// If already signed in, go straight to the dashboard.
+fetch("/api/auth/me").then(r => { if (r.ok) window.location.href = "/"; }).catch(() => {});
+</script>
+</body>
+</html>
