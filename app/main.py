@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import auth, catalog, db, recommender
+from . import auth, catalog, db, recommender, travel
 
 load_dotenv()
 
@@ -31,6 +31,10 @@ app = FastAPI(
 
 if STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# The traveller-facing routes live in their own module; the routes above are the
+# DBMS dashboard that inspects the schema.
+app.include_router(travel.router)
 
 
 class Credentials(BaseModel):
@@ -334,7 +338,9 @@ def run_alerts(_: dict = Depends(admin_only)) -> dict:
     """Run the budget-alert demo steps in order, inside a rolled-back transaction."""
     steps = catalog.ALERT_DEMO["steps"]
     statements = [{"sql": s["sql"]} for s in steps]
-    statements.append({"sql": catalog.ALERT_DEMO["read_sql"]})
+    # Only rows above this id belong to the demo; the app writes alerts too.
+    baseline = db.scalar("SELECT COALESCE(MAX(alert_id), 0) FROM trip_alerts")
+    statements.append({"sql": catalog.ALERT_DEMO["read_sql"], "params": (baseline,)})
     results = db.sandbox(statements)
     alerts = results[-1]["rows"]
     return {
@@ -352,7 +358,9 @@ def run_audit(_: dict = Depends(admin_only)) -> dict:
     """Run the audit-trail demo steps in order, inside a rolled-back transaction."""
     steps = catalog.AUDIT_DEMO["steps"]
     statements = [{"sql": s["sql"]} for s in steps]
-    statements.append({"sql": catalog.AUDIT_DEMO["read_sql"]})
+    # Only rows above this id belong to the demo; the app writes audit rows too.
+    baseline = db.scalar("SELECT COALESCE(MAX(audit_id), 0) FROM audit_log")
+    statements.append({"sql": catalog.AUDIT_DEMO["read_sql"], "params": (baseline,)})
     results = db.sandbox(statements)
     log = results[-1]["rows"]
     return {
@@ -457,6 +465,15 @@ def login_page() -> FileResponse:
     return FileResponse(page)
 
 
+@app.get("/app")
+def traveller_app() -> FileResponse:
+    """The consumer-facing trip planner, as opposed to the DBMS dashboard."""
+    page = STATIC_DIR / "app.html"
+    if not page.is_file():
+        raise HTTPException(500, "static/app.html is missing")
+    return FileResponse(page)
+
+
 @app.get("/api/bundle")
 def download_bundle(_: dict = Depends(signed_in)) -> Response:
     """Serve a zip of the application files so they can be added to GitHub."""
@@ -465,8 +482,8 @@ def download_bundle(_: dict = Depends(signed_in)) -> Response:
 
     files = [
         "app/__init__.py", "app/db.py", "app/auth.py", "app/catalog.py",
-        "app/recommender.py", "app/main.py", "app/README.md",
-        "static/index.html", "static/login.html",
+        "app/recommender.py", "app/travel.py", "app/main.py", "app/README.md",
+        "static/index.html", "static/login.html", "static/app.html",
         "tests/test_api.py",
         "requirements.txt", "Dockerfile", "docker-compose.yml",
         ".env.example", ".gitignore",

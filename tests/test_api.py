@@ -437,3 +437,257 @@ def test_registered_user_can_sign_in_again():
     assert r.status_code == 200
     assert r.json()["user"]["email"] == email
     db.execute("DELETE FROM users WHERE email = %s", (email,))
+
+
+# ------------------------------------------------------- traveller travel app
+# These exercise /api/travel, the consumer-facing planner. Every test cleans up
+# after itself so the documented counts in the DBMS tests stay true.
+
+
+@pytest.fixture
+def travel_trip(admin_client):
+    """A throwaway trip owned by the admin, removed when the test ends."""
+    from app import db
+
+    r = admin_client.post("/api/travel/trips", json={
+        "title": "pytest travel trip", "start_date": "2027-03-01",
+        "end_date": "2027-03-05", "budget_total": 50000,
+    })
+    assert r.status_code == 201, r.text
+    trip_id = r.json()["trip_id"]
+    yield trip_id
+    db.execute("DELETE FROM expenses WHERE trip_id = %s", (trip_id,))
+    db.execute("DELETE FROM hotel_reservations WHERE trip_id = %s", (trip_id,))
+    db.execute("DELETE FROM itinerary_days WHERE trip_id = %s", (trip_id,))
+    db.execute("DELETE FROM trip_members WHERE trip_id = %s", (trip_id,))
+    db.execute("DELETE FROM trips WHERE trip_id = %s", (trip_id,))
+    # Booking and cancelling write audit rows; drop them so the audit demo test
+    # and the documented counts stay accurate.
+    db.execute("DELETE FROM audit_log WHERE changed_at >= NOW() - INTERVAL 10 MINUTE")
+
+
+def test_travel_requires_sign_in():
+    anon = TestClient(app)
+    assert anon.get("/api/travel/destinations").status_code == 401
+    assert anon.get("/api/travel/trips").status_code == 401
+
+
+def test_travel_write_requires_csrf(admin_client):
+    no_header = TestClient(app)
+    r = no_header.post("/api/auth/login", json=ADMIN)
+    assert r.status_code == 200
+    r = no_header.post("/api/travel/trips", json={
+        "title": "no csrf", "start_date": "2027-03-01",
+        "end_date": "2027-03-02", "budget_total": 100,
+    })
+    assert r.status_code == 403
+
+
+def test_destinations_list_carries_prices_and_ratings(admin_client):
+    body = admin_client.get("/api/travel/destinations").json()
+    assert len(body) == 7
+    goa = next(d for d in body if d["name"] == "Goa")
+    assert goa["hotels"] == 2
+    assert goa["from_price"] == 3200.0
+    assert goa["avg_rating"] > 0
+
+
+def test_hotel_detail_joins_places_for_name_and_amenities(admin_client):
+    body = admin_client.get("/api/travel/hotels/3").json()
+    assert body["name"] == "Seaside Palms Resort"
+    assert body["destination"] == "Goa"
+    assert body["star_rating"] == 4
+    names = {a["name"] for a in body["amenities"]}
+    assert {"Wi-Fi", "Swimming Pool", "Spa"} <= names
+    assert len(body["room_types"]) == 2
+
+
+def test_availability_excludes_overlapping_stays(admin_client):
+    # Reservation 3 already occupies room 5 on the Goa trip dates.
+    free = admin_client.get("/api/travel/hotels/3/availability", params={
+        "check_in": "2026-12-26", "check_out": "2026-12-30", "guests": 2,
+    }).json()
+    taken = admin_client.get("/api/travel/hotels/3/availability", params={
+        "check_in": "2026-12-26", "check_out": "2026-12-30", "guests": 1,
+    }).json()
+    assert all(r["max_occupancy"] >= 2 for r in free)
+    # Room 2 is under maintenance, so it must never appear.
+    assert 2 not in {r["room_id"] for r in taken}
+
+
+def test_availability_rejects_reversed_dates(admin_client):
+    r = admin_client.get("/api/travel/hotels/3/availability", params={
+        "check_in": "2026-12-30", "check_out": "2026-12-26",
+    })
+    assert r.status_code == 400
+
+
+def test_trip_can_be_created_and_read_back(admin_client, travel_trip):
+    body = admin_client.get(f"/api/travel/trips/{travel_trip}").json()
+    assert body["title"] == "pytest travel trip"
+    assert body["my_role"] == "owner"
+    # sp_create_trip must have generated one day per date in the range.
+    assert len(body["days"]) == 5
+    assert [d["day_number"] for d in body["days"]] == [1, 2, 3, 4, 5]
+
+
+def test_trip_rejects_end_before_start(admin_client):
+    r = admin_client.post("/api/travel/trips", json={
+        "title": "backwards", "start_date": "2027-03-05",
+        "end_date": "2027-03-01", "budget_total": 100,
+    })
+    assert r.status_code == 400
+
+
+def test_booking_succeeds_inside_the_trip_window(admin_client, travel_trip):
+    body = admin_client.post("/api/travel/bookings", json={
+        "trip_id": travel_trip, "room_id": 1, "check_in": "2027-03-02",
+        "check_out": "2027-03-04", "num_guests": 2,
+    }).json()
+    assert body["reservation_id"]
+    res = body["reservation"]
+    assert res["confirmation_code"].startswith("HB")
+    assert res["nights"] == 2
+    assert res["total_cost"] == 9000.0
+
+
+def test_booking_is_refused_when_room_is_already_taken(admin_client, travel_trip):
+    first = admin_client.post("/api/travel/bookings", json={
+        "trip_id": travel_trip, "room_id": 1, "check_in": "2027-03-02",
+        "check_out": "2027-03-04", "num_guests": 2,
+    })
+    assert first.status_code == 201
+    clash = admin_client.post("/api/travel/bookings", json={
+        "trip_id": travel_trip, "room_id": 1, "check_in": "2027-03-03",
+        "check_out": "2027-03-05", "num_guests": 2,
+    })
+    assert clash.status_code == 400
+    assert "already reserved" in clash.json()["detail"]
+
+
+def test_booking_is_refused_over_room_capacity(admin_client, travel_trip):
+    r = admin_client.post("/api/travel/bookings", json={
+        "trip_id": travel_trip, "room_id": 1, "check_in": "2027-03-02",
+        "check_out": "2027-03-03", "num_guests": 9,
+    })
+    assert r.status_code == 400
+    assert "capacity" in r.json()["detail"]
+
+
+def test_booking_is_refused_outside_the_trip_dates(admin_client, travel_trip):
+    r = admin_client.post("/api/travel/bookings", json={
+        "trip_id": travel_trip, "room_id": 1, "check_in": "2027-06-01",
+        "check_out": "2027-06-03", "num_guests": 2,
+    })
+    assert r.status_code == 400
+    assert "inside the trip dates" in r.json()["detail"]
+
+
+def test_booking_is_refused_for_a_trip_you_do_not_belong_to(admin_client):
+    # Trip 1 belongs to user 2; the admin is not a member, so the trigger stops it.
+    r = admin_client.post("/api/travel/bookings", json={
+        "trip_id": 1, "room_id": 1, "check_in": "2026-12-27",
+        "check_out": "2026-12-28", "num_guests": 1,
+    })
+    assert r.status_code == 400
+    assert "owner or editor" in r.json()["detail"]
+
+
+def test_cancelling_a_booking_keeps_the_room_free(admin_client, travel_trip):
+    created = admin_client.post("/api/travel/bookings", json={
+        "trip_id": travel_trip, "room_id": 1, "check_in": "2027-03-02",
+        "check_out": "2027-03-04", "num_guests": 2,
+    }).json()
+    rid = created["reservation_id"]
+    assert admin_client.post(f"/api/travel/bookings/{rid}/cancel").status_code == 200
+    # A cancelled stay must not block the same room on the same nights.
+    again = admin_client.post("/api/travel/bookings", json={
+        "trip_id": travel_trip, "room_id": 1, "check_in": "2027-03-02",
+        "check_out": "2027-03-04", "num_guests": 2,
+    })
+    assert again.status_code == 201
+    assert admin_client.post(f"/api/travel/bookings/{rid}/cancel").status_code == 400
+
+
+def test_expense_over_budget_raises_a_trip_alert(admin_client, travel_trip):
+    body = admin_client.post("/api/travel/expenses", json={
+        "trip_id": travel_trip, "expense_category_id": 1, "amount": 45000,
+        "expense_date": "2027-03-02", "description": "pytest big spend",
+    }).json()
+    assert body["expense_id"]
+    types = {a["alert_type"] for a in body["alerts"]}
+    assert "budget_80" in types
+    assert body["costs"]["actual_spend"] == 45000.0
+
+
+def test_expense_requires_trip_membership(admin_client):
+    r = admin_client.post("/api/travel/expenses", json={
+        "trip_id": 1, "expense_category_id": 1, "amount": 100,
+        "expense_date": "2026-12-27", "description": "not my trip",
+    })
+    assert r.status_code == 403
+
+
+def test_expense_rejects_a_negative_amount(admin_client, travel_trip):
+    r = admin_client.post("/api/travel/expenses", json={
+        "trip_id": travel_trip, "expense_category_id": 1, "amount": -50,
+        "expense_date": "2027-03-02", "description": "negative",
+    })
+    assert r.status_code == 422
+
+
+def test_wishlist_toggles_on_and_off(admin_client):
+    from app import db
+
+    dest = 3  # Munnar; the seeded user 1 does not have it saved
+    db.execute("DELETE FROM saved_destinations WHERE user_id = 1 AND destination_id = %s", (dest,))
+    try:
+        assert admin_client.post(f"/api/travel/wishlist/{dest}").json()["saved"] is True
+        names = {d["name"] for d in admin_client.get("/api/travel/wishlist").json()}
+        assert "Munnar" in names
+        assert admin_client.post(f"/api/travel/wishlist/{dest}").json()["saved"] is False
+        names = {d["name"] for d in admin_client.get("/api/travel/wishlist").json()}
+        assert "Munnar" not in names
+    finally:
+        db.execute("DELETE FROM saved_destinations WHERE user_id = 1 AND destination_id = %s", (dest,))
+
+
+def test_wishlist_unknown_destination_is_404(admin_client):
+    assert admin_client.post("/api/travel/wishlist/99999").status_code == 404
+
+
+def test_search_finds_destinations_and_hotels(admin_client):
+    body = admin_client.get("/api/travel/search", params={"q": "goa"}).json()
+    assert [d["name"] for d in body["destinations"]] == ["Goa"]
+    assert {h["name"] for h in body["hotels"]} == {
+        "Seaside Palms Resort", "Casa Azul Boutique Stay"}
+
+
+def test_recommendations_skip_visited_destinations(admin_client):
+    body = admin_client.get("/api/travel/recommendations", params={"limit": 3}).json()
+    assert body["results"]
+    visited = set(body["visited_destination_ids"])
+    assert all(r["destination_id"] not in visited for r in body["results"])
+    assert all(r["reasons"] for r in body["results"])
+
+
+def test_profile_reports_the_signed_in_user(admin_client):
+    body = admin_client.get("/api/travel/profile").json()
+    assert body["user"]["email"] == ADMIN["email"]
+    assert set(body["stats"]) >= {"trips", "wishlist", "reviews", "stays", "spend"}
+
+
+def test_app_page_is_served():
+    assert TestClient(app).get("/app").status_code == 200
+
+
+def test_bundle_includes_the_travel_app(admin_client):
+    import io
+    import zipfile
+
+    r = admin_client.get("/api/bundle")
+    assert r.status_code == 200
+    names = zipfile.ZipFile(io.BytesIO(r.content)).namelist()
+    assert "app/travel.py" in names
+    assert "static/app.html" in names
+

@@ -660,7 +660,10 @@ ALERT_DEMO = {
                 "VALUES (4, 1, 5, 100, '2026-10-22', 'Test: parking')",
          "expect": "still 2 alerts (UNIQUE (trip_id, alert_type) plus INSERT IGNORE)"},
     ],
-    "read_sql": "SELECT trip_id, alert_type, message FROM trip_alerts ORDER BY alert_id",
+    # Scoped to rows this demo created: ordinary use of the travel app also
+    # writes trip_alerts, so counting the whole table would report a wrong total.
+    "read_sql": "SELECT trip_id, alert_type, message FROM trip_alerts "
+                "WHERE alert_id > %s ORDER BY alert_id",
 }
 
 
@@ -681,6 +684,8 @@ AUDIT_DEMO = {
         {"label": "expenses 7: DELETE",
          "sql": "DELETE FROM expenses WHERE expense_id = 7"},
     ],
+    # Scoped to rows this demo created: ordinary use of the travel app also
+    # writes audit_log, so counting the whole table would report a wrong total.
     "read_sql": "SELECT audit_id, table_name, record_id, action, field_name, old_value, new_value "
-                "FROM audit_log ORDER BY audit_id",
+                "FROM audit_log WHERE audit_id > %s ORDER BY audit_id",
 }

@@ -23,6 +23,47 @@ MySQL Workbench.
 
 Interactive API docs are at `/docs`.
 
+## The traveller app (`/app`)
+
+The dashboard above inspects the schema. `/app` is the opposite side: a
+consumer-style trip planner a normal traveller would use, built on the same
+tables. It is served at `/app` and linked from the dashboard header.
+
+| Route | What it does |
+|---|---|
+| `GET /api/travel/destinations`, `/destinations/{id}` | Browse places, with hotels, things to see and reviews |
+| `GET /api/travel/hotels`, `/hotels/{id}` | Hotels with amenities and room types |
+| `GET /api/travel/hotels/{id}/availability` | Rooms free for a date range and party size |
+| `GET /api/travel/search?q=` | One box over destinations, hotels and places |
+| `GET /api/travel/recommendations` | Personalised destination scores |
+| `GET/POST /api/travel/trips` | List and create trips (`sp_create_trip`) |
+| `GET /api/travel/trips/{id}` | Full itinerary: days, items, stays, expenses, costs |
+| `POST /api/travel/bookings` | Reserve a room (`sp_book_room`) |
+| `GET /api/travel/bookings`, `POST /bookings/{id}/cancel` | List and cancel stays |
+| `POST /api/travel/expenses` | Log an expense, returning any budget alert |
+| `POST /api/travel/reviews` | Rate a destination |
+| `GET /api/travel/wishlist`, `POST /wishlist/{id}` | Saved destinations; the POST toggles |
+| `GET /api/travel/profile` | The signed-in user's headline numbers |
+
+Every write goes through the database's own rules rather than reimplementing
+them, so the app and the schema cannot disagree:
+
+* Room capacity, the trip date window, the "only an owner or editor may book"
+  rule and double-booking are all enforced by `trg_res_validate_bi`. When one
+  rejects a booking the trigger's message is returned as a 400 and shown to the
+  user as-is.
+* `sp_book_room` locks the room row `FOR UPDATE` and generates the confirmation
+  code; `sp_create_trip` creates the trip, adds the owner as a member and writes
+  one `itinerary_days` row per date.
+* Logging an expense fires the budget triggers, which write `trip_alerts`; the
+  API returns those alerts so the page can surface them immediately.
+
+### Authentication
+
+`/app` uses the same session and CSRF scheme as the dashboard. Reads need a
+signed-in user; writes need a signed-in user plus the `X-CSRF-Token` header.
+Sign-up is on the login page.
+
 ## Authentication
 
 Every data route requires a signed-in user, and routes that write to the database
@@ -79,18 +120,27 @@ demo values. A production system would store bcrypt or argon2 hashes.
 
 ### Option A: Docker Compose (recommended)
 
+Needs Docker Desktop (or Docker Engine) running. Nothing else.
+
 ```bash
 cp .env.example .env
-# then set APP_SECRET_KEY in .env:
+# put a real key in .env - compose refuses to start without one:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
+# paste that value as APP_SECRET_KEY in .env, then:
 docker compose up -d --build
-# then open http://localhost:8000 and sign in
+# open http://localhost:8000 and sign in
 ```
 
 Compose starts MySQL 8.4, loads `00_build_everything.sql` on first start, and
-runs the API against it. It refuses to start without `APP_SECRET_KEY`.
+runs the API against it. The first start takes a few minutes while the image
+builds and the schema loads.
+
+If port 3306 or 8000 is already taken, set `DB_PORT` and `APP_PORT` in `.env` to
+free ones (for example 3307 and 8001) and open the new `APP_PORT`.
 
 ### Option B: an existing MySQL server
+
+Use this when you already have MySQL and do not want Docker.
 
 ```bash
 mysql -h127.0.0.1 -uroot -p < 00_build_everything.sql   # build the schema once
@@ -98,6 +148,9 @@ cp .env.example .env                                    # then edit if needed
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+
+The app reads `.env` automatically. If your MySQL already has the schema loaded,
+skip the first line; loading it twice is safe but slow.
 
 ## Tests
 
@@ -122,6 +175,11 @@ file) first. The tests assert the counts, the documented query results, that all
   running them never changes the data. `sp_book_room` keeps its reservation so a
   second call can show the trigger rejecting a double booking; use
   `/api/procedures/cleanup` afterwards.
+* **The alert and audit demos read only their own rows.** Booking, cancelling or
+  logging an expense through `/app` fires the same triggers that write
+  `trip_alerts` and `audit_log`. Both demos therefore capture the highest id
+  before they run and read only rows above it, so normal use of the app cannot
+  change the numbers they report.
 * **Script 07 is not in the repository.** `AGENTS.md` describes a recommendation
   layer, but `07_recommendation_engine.sql` was never committed, so the scoring
   model is implemented in `app/recommender.py` against the existing tables. The
