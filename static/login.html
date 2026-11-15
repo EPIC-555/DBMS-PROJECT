@@ -233,5 +233,6 @@ form.addEventListener("submit", async (e) => {
 // If already signed in, go straight to the dashboard.
 fetch("/api/auth/me").then(r => { if (r.ok) window.location.href = "/"; }).catch(() => {});
 </script>
+  <script src="/static/snow.js?v=5" defer></script>
 </body>
 </html>
