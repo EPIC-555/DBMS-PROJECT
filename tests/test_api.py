@@ -691,3 +691,192 @@ def test_bundle_includes_the_travel_app(admin_client):
     assert "app/travel.py" in names
     assert "static/app.html" in names
 
+
+
+# --------------------------------------------------------------- hashing
+def test_passwords_are_bcrypt_after_login():
+    """A legacy SHA-256 row is rewritten as bcrypt the first time it is used."""
+    import hashlib
+
+    from app import auth, db
+
+    email = "rohan.mehta@example.com"
+    password = "Rohan@123"
+    # Start from a known legacy state so this test is repeatable.
+    db.execute("UPDATE users SET password_hash = %s WHERE email = %s",
+               (hashlib.sha256(password.encode()).hexdigest(), email))
+    before = db.query("SELECT password_hash FROM users WHERE email = %s", (email,))[0]
+    assert auth._LEGACY_HASH_RE.match(before["password_hash"]), "expected a legacy digest"
+
+    c = TestClient(app)
+    assert c.post("/api/auth/login", json={"email": email, "password": password}).status_code == 200
+
+    after = db.query("SELECT password_hash FROM users WHERE email = %s", (email,))[0]
+    assert after["password_hash"].startswith("$2b$"), "should be upgraded to bcrypt"
+    assert after["password_hash"] != before["password_hash"]
+    # The plaintext must never be recoverable from the stored value.
+    assert password not in after["password_hash"]
+    # And the upgraded row must still accept the same password next time.
+    assert TestClient(app).post(
+        "/api/auth/login", json={"email": email, "password": password}).status_code == 200
+
+
+def test_bcrypt_hashes_are_salted_and_verifiable():
+    from app import auth
+
+    a = auth.hash_password("CorrectHorse1")
+    b = auth.hash_password("CorrectHorse1")
+    assert a != b, "the same password must not produce the same hash"
+    assert auth.verify_password("CorrectHorse1", a)
+    assert auth.verify_password("CorrectHorse1", b)
+    assert not auth.verify_password("wrong-password", a)
+
+
+def test_legacy_sha256_hash_still_verifies():
+    """The upgrade path must not lock out an account that has not signed in yet."""
+    import hashlib
+
+    from app import auth
+
+    digest = hashlib.sha256(b"Legacy@123").hexdigest()
+    assert auth.verify_password("Legacy@123", digest)
+    assert not auth.verify_password("nope", digest)
+    assert auth.needs_rehash(digest)
+    assert not auth.needs_rehash(auth.hash_password("Modern@123"))
+
+
+# --------------------------------------------------------------- sessions
+def test_session_reports_a_thirty_minute_window():
+    c = TestClient(app)
+    assert c.post("/api/auth/login", json=ADMIN).status_code == 200
+    body = c.get("/api/auth/session").json()
+    assert body["active"] is True
+    assert body["ttl_seconds"] == 1800
+    assert 0 < body["expires_in"] <= 1800
+    assert body["absolute_expires_in"] >= body["expires_in"]
+
+
+def test_session_endpoint_is_anonymous_friendly():
+    body = TestClient(app).get("/api/auth/session").json()
+    assert body == {"active": False}
+
+
+def test_logout_revokes_only_the_presented_session():
+    """Signing out on one client must not sign the account out everywhere."""
+    a = TestClient(app)
+    b = TestClient(app)
+    ta = a.post("/api/auth/login", json=ADMIN).json()["csrf_token"]
+    b.post("/api/auth/login", json=ADMIN)
+
+    assert a.post("/api/auth/logout", headers={"X-CSRF-Token": ta}).status_code == 200
+    assert a.get("/api/health").status_code == 401, "the logged-out client is done"
+    assert b.get("/api/health").status_code == 200, "the other session survives"
+
+
+def test_expired_session_is_rejected(monkeypatch):
+    from app import auth
+
+    monkeypatch.setattr(auth, "SESSION_TTL_SECONDS", -1)
+    token = auth.make_session({"user_id": 1, "email": "x@y.z", "full_name": "X", "role": "user"})
+    assert auth.read_session(token) is None
+    assert auth.session_state(token) == {"active": False}
+
+
+# --------------------------------------------------------------- permissions
+def test_permissions_list_both_allowed_and_denied(viewer_client):
+    body = viewer_client.get("/api/me/permissions").json()
+    assert body["user"]["role"] == "user"
+    assert "run_rule_tests" in body["global_cannot"]
+    assert "browse_destinations" in body["global_can"]
+    # Every denial carries a sentence a person can act on.
+    assert all(a["reason"] for a in body["global"] if not a["allowed"])
+    assert all(a["reason"] for a in body["global"] if a["allowed"])
+
+
+def test_admin_permissions_are_a_superset(admin_client, viewer_client):
+    admin = admin_client.get("/api/me/permissions").json()
+    assert admin["global_cannot"] == []
+    assert set(viewer_client.get("/api/me/permissions").json()["global_can"]) < set(admin["global_can"])
+
+
+def test_trip_matrix_matches_the_role(viewer_client):
+    trips = {t["trip_id"]: t for t in viewer_client.get("/api/me/trips").json()}
+    # Priya owns trip 1, edits trip 2 and only views trip 5.
+    assert trips[1]["my_role"] == "owner"
+    assert trips[1]["capabilities"]["delete_trip"]["allowed"] is True
+    assert trips[2]["my_role"] == "editor"
+    assert trips[2]["capabilities"]["book_room"]["allowed"] is True
+    assert trips[2]["capabilities"]["delete_trip"]["allowed"] is False
+    assert trips[5]["my_role"] == "viewer"
+    assert trips[5]["capabilities"]["book_room"]["allowed"] is False
+    assert "view" in trips[5]["can"] and "book_room" in trips[5]["cannot"]
+
+
+def test_booking_options_separate_bookable_from_blocked(viewer_client):
+    body = viewer_client.get("/api/me/booking-options").json()
+    assert body["can_book_any"] is True
+    bookable = {t["trip_id"] for t in body["bookable"]}
+    blocked = {t["trip_id"] for t in body["blocked"]}
+    assert bookable == {1, 2}
+    assert blocked == {5}
+    assert all(t["why"] for t in body["blocked"])
+
+
+def test_booking_a_viewer_trip_explains_instead_of_failing(viewer_client):
+    """The dead end from the demo: a clear reason plus the trips that do work."""
+    r = viewer_client.post("/api/travel/bookings", json={
+        "trip_id": 5, "room_id": 19,
+        "check_in": "2027-01-08", "check_out": "2027-01-10", "num_guests": 2,
+    })
+    assert r.status_code == 403
+    detail = r.json()["detail"]
+    assert "viewer" in detail["message"]
+    assert {t["trip_id"] for t in detail["bookable"]} == {1, 2}
+
+
+def test_travel_access_endpoint_returns_the_matrix(viewer_client):
+    body = viewer_client.get("/api/travel/access").json()
+    assert body["booking"]["can_book_any"] is True
+    assert {t["trip_id"] for t in body["trips"]} == {1, 2, 5}
+    assert body["actions"], "the action catalog should be included for the UI"
+
+
+def test_trip_list_carries_capabilities(viewer_client):
+    for trip in viewer_client.get("/api/travel/trips").json():
+        assert "capabilities" in trip and "can" in trip and "cannot" in trip
+        assert trip["capabilities"]["view"]["allowed"] is True
+
+
+# --------------------------------------------------------------- hardening
+def test_security_headers_are_present():
+    r = TestClient(app).get("/login")
+    assert r.headers["x-content-type-options"] == "nosniff"
+    assert r.headers["x-frame-options"] == "DENY"
+    assert r.headers["referrer-policy"] == "same-origin"
+    assert "frame-ancestors 'none'" in r.headers["content-security-policy"]
+    assert "default-src 'self'" in r.headers["content-security-policy"]
+
+
+def test_registration_rejects_a_common_password():
+    r = TestClient(app).post("/api/auth/register", json={
+        "full_name": "Test Person", "email": "common.pw@example.com", "password": "password123",
+    })
+    assert r.status_code == 400
+    assert "common" in r.json()["detail"].lower()
+
+
+def test_registration_never_grants_admin():
+    import uuid
+
+    address = f"probe-{uuid.uuid4().hex[:8]}@example.com"
+    c = TestClient(app)
+    r = c.post("/api/auth/register", json={
+        "full_name": "Probe User", "email": address, "password": "Str0ngPass!x",
+    })
+    assert r.status_code == 200
+    assert r.json()["user"]["role"] == "user"
+    assert c.get("/api/me/permissions").json()["global_cannot"], "a new user is not an admin"
+
+    from app import db
+
+    db.execute("DELETE FROM users WHERE email = %s", (address,))

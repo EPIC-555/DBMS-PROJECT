@@ -109,3 +109,39 @@ Load: `mysql -h127.0.0.1 -P3307 -uroot -prootpw < script.sql`
 - Q4 Munnar settlement (total 30600, 3 ways = 10200): Sneha +11700, Karthik -4200, Ananya -7500
 - Q5 view v_reservation_summary: 8 rows (res 1..8) with nights/total/paid/balance per PDF page 10
 - Q12 owner-is-member integrity: returns 0 rows
+
+## Rebuilding the environment after a sandbox reset
+The sandbox is ephemeral. A restart wipes MariaDB, the user site-packages and any
+running server, but the SQL files in the repo are enough to rebuild everything.
+
+```bash
+# 1. MariaDB
+sudo apt-get update -qq
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq mariadb-server
+sudo mkdir -p /var/lib/mysql /run/mysqld
+sudo chown -R mysql:mysql /var/lib/mysql /run/mysqld
+sudo mariadb-install-db --user=mysql --datadir=/var/lib/mysql   # only if datadir empty
+sudo nohup mariadbd --user=mysql --datadir=/var/lib/mysql \
+  --socket=/run/mysqld/mysqld.sock --port=3306 --bind-address=0.0.0.0 > /tmp/mariadb.log 2>&1 &
+
+# 2. root password + TCP access (the app connects over 127.0.0.1)
+sudo mariadb -e "ALTER USER 'root'@'localhost' IDENTIFIED BY 'rootpw';
+  CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED BY 'rootpw';
+  GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION; FLUSH PRIVILEGES;"
+
+# 3. schema (run over TCP: root@localhost uses unix_socket auth)
+mariadb -h127.0.0.1 -uroot -prootpw < 00_build_everything.sql
+
+# 4. python deps and the app
+python3 -m pip install --user -q -r requirements.txt
+APP_SECRET_KEY=... DB_HOST=127.0.0.1 DB_PORT=3306 DB_USER=root DB_PASSWORD=rootpw \
+  DB_NAME=travel_itinerary_db PYTHONPATH=$PWD \
+  nohup python3 -m uvicorn app.main:app --host 0.0.0.0 --port 12000 > /tmp/server.log 2>&1 &
+```
+
+Note: `00_build_everything.sql` uses the MySQL-8 collation `utf8mb4_0900_ai_ci`.
+MariaDB accepts it here, but if a load ever fails on the collation, change it to
+`utf8mb4_general_ci` rather than editing the repo's SQL files.
+
+After the rebuild, confirm the acceptance counts: tables 32, FKs 41, triggers 31, views 4.
+

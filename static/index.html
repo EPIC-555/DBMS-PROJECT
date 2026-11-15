@@ -56,6 +56,76 @@
   }
   .who .name { font-size: 13.5px; font-weight: 600; }
   .who .role { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+  /* ------------------------------------------------- session countdown */
+  .session {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--panel-2); border: 1px solid var(--line); color: var(--muted);
+    padding: 6px 11px; border-radius: 999px; font-size: 12.5px; cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .18s, color .18s, transform .16s var(--ease);
+  }
+  .session:hover { transform: translateY(-1px); border-color: var(--accent-2); color: var(--ink); }
+  .session .dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent);
+    animation: pulse 2.4s ease-out infinite;
+  }
+  .session.warn { color: var(--warn); border-color: rgba(210,153,34,.45); }
+  .session.warn .dot { background: var(--warn); animation-duration: 1.2s; }
+  .session.crit { color: var(--bad); border-color: rgba(248,81,73,.5); }
+  .session.crit .dot { background: var(--bad); animation-duration: .8s; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(63,185,80,.5); }
+    70% { box-shadow: 0 0 0 7px rgba(63,185,80,0); }
+    100% { box-shadow: 0 0 0 0 rgba(63,185,80,0); }
+  }
+
+  .sessionbar {
+    display: flex; align-items: center; gap: 12px; justify-content: center;
+    padding: 10px 20px; font-size: 13.5px;
+    background: rgba(210,153,34,.14); border-bottom: 1px solid rgba(210,153,34,.38);
+    color: #f2d08a; animation: dropIn .3s var(--ease) both;
+  }
+  .sessionbar[hidden] { display: none; }
+  .sessionbar.crit { background: rgba(248,81,73,.15); border-bottom-color: rgba(248,81,73,.42); color: #ffb8b3; }
+  @keyframes dropIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+
+  /* ------------------------------------------------------ access panel */
+  .accesslist { display: flex; flex-direction: column; gap: 7px; }
+  .accessrow {
+    display: flex; align-items: flex-start; gap: 11px;
+    padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel-2); font-size: 13.5px;
+    transition: border-color .18s, transform .16s var(--ease);
+  }
+  .accessrow:hover { transform: translateX(2px); }
+  .accessrow .mark {
+    flex: 0 0 auto; width: 20px; height: 20px; border-radius: 6px;
+    display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px;
+  }
+  .accessrow.yes { border-color: rgba(63,185,80,.3); }
+  .accessrow.yes .mark { background: rgba(63,185,80,.18); color: var(--accent); }
+  .accessrow.no { opacity: .85; }
+  .accessrow.no .mark { background: rgba(248,81,73,.16); color: var(--bad); }
+  .accessrow.no .label { color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(248,81,73,.5); }
+  .accessrow .label { font-weight: 600; }
+  .accessrow .why { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .accessrow .tag { margin-left: auto; flex: 0 0 auto; }
+  .rolebadge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+  .rolebadge.owner { color: var(--accent); }
+  .rolebadge.editor { color: var(--accent-2); }
+  .rolebadge.viewer { color: var(--warn); }
+  .locknote {
+    display: flex; align-items: center; gap: 9px; padding: 10px 13px; border-radius: 10px;
+    background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.32); color: #ffb8b3;
+    font-size: 12.5px; margin: 0 0 10px;
+  }
+  .tagpill {
+    display: inline-flex; align-items: center; font-size: 11px; padding: 3px 9px;
+    border-radius: 999px; border: 1px solid var(--line); color: var(--muted); background: var(--panel-2);
+  }
+  .tagpill.ok { color: var(--accent); border-color: rgba(63,185,80,.4); }
+  .tagpill.bad { color: var(--bad); border-color: rgba(248,81,73,.4); }
   .counts { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
   .chip {
     background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
@@ -223,8 +293,15 @@
   <div class="counts" id="counts"><span class="chip">connectingâ€¦</span></div>
 </header>
 
+<div class="sessionbar" id="sessionBar" hidden>
+  <span>⏳</span>
+  <span id="sessionWarn">Your session is about to end.</span>
+  <button class="ghost" id="sessionExtend">Stay signed in</button>
+</div>
+
 <nav id="nav">
   <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="access">My access</button>
   <button data-tab="queries">Queries</button>
   <button data-tab="rules">Rule lab</button>
   <button data-tab="cascades">Referential actions</button>
@@ -250,6 +327,26 @@
       <h3>Foreign keys and their referential actions <span class="id" id="fk-count"></span></h3>
       <div id="ov-fks"></div>
     </div>
+  </section>
+
+  <section id="access">
+    <h2>What your account can do</h2>
+    <p class="lede">These limits are enforced by the database, not by this page. A row
+      marked <b>blocked</b> is a rule the server will really apply — the reason next to it
+      comes straight from the same check that guards the data.</p>
+    <div id="access-summary"></div>
+    <div class="card">
+      <h3>Account-wide actions</h3>
+      <p class="note">Determined by your account role.</p>
+      <div id="access-global"></div>
+    </div>
+    <div class="card">
+      <h3>Booking availability</h3>
+      <p class="note">A room can only be booked against a trip you own or edit.</p>
+      <div id="access-booking"></div>
+    </div>
+    <h2 style="margin-top:26px">Trip by trip</h2>
+    <div id="access-trips"></div>
   </section>
 
   <section id="queries">
@@ -422,7 +519,10 @@ function renderWho() {
   if (!ME) return;
   const initials = ME.name.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
   $("#who").innerHTML =
-    `<div class="avatar">${esc(initials)}</div>
+    `<button class="session" id="sessionChip" title="Click to extend your session">
+       <span class="dot"></span><span id="sessionClock">--:--</span>
+     </button>
+     <div class="avatar">${esc(initials)}</div>
      <div><div class="name">${esc(ME.name)}</div><div class="role">${esc(ME.role)}</div></div>
      <button class="ghost" id="dl">Download files</button>
      <button class="ghost" id="out">Sign out</button>`;
@@ -434,6 +534,147 @@ function renderWho() {
     window.location.href = "/api/bundle";
     toast("Preparing travel-itinerary-app.zip");
   });
+  $("#sessionChip").addEventListener("click", extendSession);
+}
+
+/* ---------------- session countdown ---------------- */
+let SESSION = null, sessionTimer = null;
+
+function fmtClock(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+}
+
+function paintSession() {
+  if (!SESSION || !SESSION.active) return;
+  const left = SESSION.secondsLeft;
+  const chip = $("#sessionChip"), bar = $("#sessionBar");
+  if (!chip) return;
+  $("#sessionClock").textContent = fmtClock(left);
+  chip.classList.toggle("warn", left <= 300 && left > 120);
+  chip.classList.toggle("crit", left <= 120);
+  if (left <= 300) {
+    bar.hidden = false;
+    bar.classList.toggle("crit", left <= 120);
+    $("#sessionWarn").textContent = left <= 120
+      ? `Your session ends in ${fmtClock(left)}. Any unsaved work will be lost.`
+      : `Your session ends in ${fmtClock(left)}. Extend it to stay signed in.`;
+  } else {
+    bar.hidden = true;
+  }
+  if (left <= 0) {
+    clearInterval(sessionTimer);
+    toast("Session expired — sign in again");
+    setTimeout(() => { window.location.href = "/login"; }, 1600);
+  }
+}
+
+async function refreshSession() {
+  try {
+    const s = await api("/api/auth/session");
+    SESSION = s.active ? { active: true, secondsLeft: s.expires_in } : { active: false, secondsLeft: 0 };
+    paintSession();
+  } catch { /* keep the last known value */ }
+}
+
+async function extendSession() {
+  try { await api("/api/auth/me"); } catch {}
+  await refreshSession();
+  toast(`Session extended — ${fmtClock(SESSION.secondsLeft)} left`);
+}
+
+function startSessionClock() {
+  clearInterval(sessionTimer);
+  sessionTimer = setInterval(() => {
+    if (!SESSION || !SESSION.active) return;
+    SESSION.secondsLeft -= 1;
+    if (SESSION.secondsLeft <= 0) refreshSession();
+    paintSession();
+  }, 1000);
+}
+
+/* ---------------- access panel ---------------- */
+const ROLE_TAG = (role) => `<span class="rolebadge ${esc(role)}">● ${esc(role)}</span>`;
+
+function accessRow(item) {
+  const yes = item.allowed;
+  return `<div class="accessrow ${yes ? "yes" : "no"}">
+      <span class="mark">${yes ? "✓" : "✕"}</span>
+      <span>
+        <span class="label">${esc(item.label)}</span>
+        <div class="why">${esc(item.reason)}</div>
+      </span>
+      <span class="tag tagpill ${yes ? "ok" : "bad"}">${yes ? "allowed" : "blocked"}</span>
+    </div>`;
+}
+
+async function loadAccess() {
+  $("#access-summary").innerHTML = skeleton();
+  let p, trav;
+  try {
+    p = await api("/api/me/permissions");
+    trav = await api("/api/travel/access");
+  } catch (e) {
+    $("#access-summary").innerHTML = `<div class="card"><p class="note">${esc(e.message)}</p></div>`;
+    return;
+  }
+
+  const c = p.counts;
+  $("#access-summary").innerHTML = `
+    <div class="grid">
+      <div class="card"><h3>Your account</h3>
+        <div class="kv"><span class="muted">name</span><b>${esc(p.user.full_name)}</b></div>
+        <div class="kv"><span class="muted">e-mail</span><b>${esc(p.user.email)}</b></div>
+        <div class="kv"><span class="muted">role</span>${ROLE_TAG(p.user.role)}</div>
+      </div>
+      <div class="card"><h3>Trips you belong to</h3>
+        <div class="kv"><span class="muted">total</span><b>${c.trips}</b></div>
+        <div class="kv"><span class="muted">as owner</span><b>${c.owner}</b></div>
+        <div class="kv"><span class="muted">as editor</span><b>${c.editor}</b></div>
+        <div class="kv"><span class="muted">as viewer</span><b>${c.viewer}</b></div>
+      </div>
+      <div class="card"><h3>Booking</h3>
+        <div class="kv"><span class="muted">trips you can book on</span><b style="color:var(--accent)">${c.can_book}</b></div>
+        <div class="kv"><span class="muted">trips blocked</span><b style="color:${c.cannot_book ? "var(--bad)" : "var(--muted)"}">${c.cannot_book}</b></div>
+        <p class="note">Only an owner or editor may book. A viewer can follow the trip and log expenses.</p>
+      </div>
+    </div>`;
+
+  $("#access-global").innerHTML = `<div class="accesslist">${p.global.map(accessRow).join("")}</div>`;
+
+  const b = trav.booking;
+  let bh = "";
+  if (!b.can_book_any) {
+    bh += `<div class="locknote">⚠ You cannot book on any trip yet. Create your own trip,
+      or ask an owner to promote you to editor.</div>`;
+  }
+  if (b.bookable.length) {
+    bh += `<p class="note">Available to you</p><div class="accesslist">`
+      + b.bookable.map(t => `<div class="accessrow yes">
+          <span class="mark">✓</span>
+          <span><span class="label">${esc(t.title)}</span>
+            <div class="why">${t.start_date} → ${t.end_date} · ${esc(t.why)}</div></span>
+          <span class="tag">${ROLE_TAG(t.my_role)}</span></div>`).join("") + `</div>`;
+  }
+  if (b.blocked.length) {
+    bh += `<p class="note" style="margin-top:12px">Not available, and why</p><div class="accesslist">`
+      + b.blocked.map(t => `<div class="accessrow no">
+          <span class="mark">✕</span>
+          <span><span class="label">${esc(t.title)}</span>
+            <div class="why">${t.start_date} → ${t.end_date} · ${esc(t.why)} ${esc(t.needs)}</div></span>
+          <span class="tag">${ROLE_TAG(t.my_role)}</span></div>`).join("") + `</div>`;
+  }
+  $("#access-booking").innerHTML = bh;
+
+  const ORDER = ["view", "edit_itinerary", "book_room", "book_transport",
+                 "cancel_booking", "add_expense", "manage_members", "delete_trip"];
+  $("#access-trips").innerHTML = trav.trips.length ? trav.trips.map(t => `
+    <div class="card">
+      <h3>${esc(t.title)} ${ROLE_TAG(t.my_role)}</h3>
+      <p class="note">${t.start_date} → ${t.end_date} · ${esc(t.role_blurb)}</p>
+      <div class="accesslist">${ORDER.filter(k => t.capabilities[k]).map(k => accessRow(t.capabilities[k])).join("")}</div>
+    </div>`).join("")
+    : `<div class="card"><p class="note">You are not a member of any trip yet.</p></div>`;
 }
 
 async function loadHeader() {
@@ -683,6 +924,7 @@ document.querySelectorAll("#nav button").forEach(btn => {
     document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
     btn.classList.add("active");
     $("#" + btn.dataset.tab).classList.add("active");
+    if (btn.dataset.tab === "access") loadAccess();
   });
 });
 $("#run-all-rules").addEventListener("click", () => runRules(null));
@@ -704,8 +946,11 @@ $("#run-recs").addEventListener("click", runRecs);
   renderWho();
   applyGating();
   await loadHeader();
+  await refreshSession();
+  startSessionClock();
+  setInterval(refreshSession, 60000);
   await Promise.all([loadOverview(), loadQueries(), loadRules(), loadCascades(), loadRefData()]);
-  if (!isAdmin()) toast("Signed in as a viewer: data-changing demos are disabled", true);
+  if (!isAdmin()) toast("Signed in with limited access — see the My access tab");
 })();
 </script>
 </body>

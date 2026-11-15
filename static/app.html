@@ -74,6 +74,74 @@
   @keyframes grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
   .spacer { flex: 1; }
   .whoami { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--muted); }
+  .whoText { line-height: 1.25; }
+
+  /* --------------------------------------------------------- session chip */
+  .session {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+    padding: 6px 11px; border-radius: 999px; font-size: 12.5px; cursor: pointer;
+    font-variant-numeric: tabular-nums;
+    transition: border-color .18s, color .18s, transform .16s var(--ease);
+  }
+  .session:hover { transform: translateY(-1px); border-color: var(--sky); color: var(--ink); }
+  .session .dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--brand);
+    box-shadow: 0 0 0 0 rgba(34,197,94,.5); animation: pulse 2.4s ease-out infinite;
+  }
+  .session.warn .dot { background: var(--amber); animation-duration: 1.2s; }
+  .session.warn { color: var(--amber); border-color: rgba(245,158,11,.4); }
+  .session.crit .dot { background: var(--rose); animation-duration: .8s; }
+  .session.crit { color: var(--rose); border-color: rgba(244,63,94,.45); }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(34,197,94,.55); }
+    70% { box-shadow: 0 0 0 7px rgba(34,197,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+  }
+
+  .sessionbar {
+    position: sticky; top: 57px; z-index: 35;
+    display: flex; align-items: center; gap: 12px; justify-content: center;
+    padding: 10px 20px; font-size: 13.5px;
+    background: rgba(245,158,11,.14); border-bottom: 1px solid rgba(245,158,11,.35);
+    color: #fcd9a0; animation: dropIn .3s var(--ease) both;
+  }
+  .sessionbar[hidden] { display: none; }
+  .sessionbar.crit { background: rgba(244,63,94,.15); border-bottom-color: rgba(244,63,94,.4); color: #ffc4ce; }
+  @keyframes dropIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: none; } }
+
+  /* ---------------------------------------------------------- access list */
+  .accesslist { display: flex; flex-direction: column; gap: 7px; }
+  .accessrow {
+    display: flex; align-items: flex-start; gap: 11px;
+    padding: 10px 12px; border-radius: 11px; border: 1px solid var(--line);
+    background: var(--surface-2); font-size: 13.5px;
+    transition: border-color .18s, transform .16s var(--ease);
+  }
+  .accessrow:hover { transform: translateX(2px); }
+  .accessrow .mark {
+    flex: 0 0 auto; width: 20px; height: 20px; border-radius: 6px;
+    display: grid; place-items: center; font-size: 12px; font-weight: 700; margin-top: 1px;
+  }
+  .accessrow.yes { border-color: rgba(34,197,94,.28); }
+  .accessrow.yes .mark { background: rgba(34,197,94,.18); color: var(--brand); }
+  .accessrow.no { opacity: .82; }
+  .accessrow.no .mark { background: rgba(244,63,94,.16); color: var(--rose); }
+  .accessrow .why { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .accessrow.no .label { color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(244,63,94,.5); }
+  .accessrow .label { font-weight: 550; }
+  .accessrow .tag { margin-left: auto; flex: 0 0 auto; }
+
+  .rolebadge { display: inline-flex; align-items: center; gap: 5px; }
+  .rolebadge.owner { color: var(--brand); }
+  .rolebadge.editor { color: var(--sky); }
+  .rolebadge.viewer { color: var(--amber); }
+
+  .locknote {
+    display: flex; align-items: center; gap: 9px; padding: 10px 13px; border-radius: 11px;
+    background: rgba(244,63,94,.1); border: 1px solid rgba(244,63,94,.3); color: #ffbcc6;
+    font-size: 12.5px; margin-bottom: 10px;
+  }
   .avatar {
     width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
     background: linear-gradient(135deg, var(--sky), #7c3aed); color: #fff; font-weight: 700; font-size: 12.5px;
@@ -315,18 +383,29 @@
     <button data-view="trips">My Trips</button>
     <button data-view="bookings">Bookings</button>
     <button data-view="wishlist">Wishlist</button>
+    <button data-view="access">Access</button>
     <button data-view="profile">Profile</button>
   </nav>
   <div class="spacer"></div>
   <div class="whoami">
+    <button class="session" id="sessionChip" title="Click to extend your session">
+      <span class="dot" id="sessionDot"></span>
+      <span id="sessionClock">--:--</span>
+    </button>
     <div class="avatar" id="avatar">?</div>
-    <div>
+    <div class="whoText">
       <div id="whoName" style="color:var(--ink);font-weight:600">…</div>
       <div id="whoRole" class="small"></div>
     </div>
     <a class="link-btn" href="/" title="The DBMS schema dashboard">DBMS view</a>
     <button class="link-btn" id="logout">Sign out</button>
   </div>
+</div>
+
+<div class="sessionbar" id="sessionBar" hidden>
+  <span>⏳</span>
+  <span id="sessionWarn">Your session is about to end.</span>
+  <button class="btn sm" id="sessionExtend">Stay signed in</button>
 </div>
 
 <section class="hero" id="hero">
@@ -384,6 +463,38 @@
       </div>
     </div>
     <div class="grid dest" id="wishGrid"></div>
+  </section>
+
+  <!-- ----------------------------------------------------------- access -->
+  <section class="view" id="view-access">
+    <div class="section-head">
+      <div>
+        <h2>What you can do</h2>
+        <div class="sub">Every rule below comes from the database, not from this page.
+          A locked row is a real limit enforced by a trigger.</div>
+      </div>
+      <span class="pill" id="accessRole">—</span>
+    </div>
+
+    <div class="grid stats mb" id="accessStats"></div>
+
+    <div class="card mb"><div class="body">
+      <h3>Account-wide actions</h3>
+      <div class="small muted mb">These depend on your account role.</div>
+      <div class="accesslist" id="globalAccess"></div>
+    </div></div>
+
+    <div class="card mb"><div class="body">
+      <h3>Where you can book</h3>
+      <div class="small muted mb">A room can only be booked against a trip you own or edit.</div>
+      <div id="bookableList"></div>
+    </div></div>
+
+    <div class="section-head"><div>
+      <h2>Trip by trip</h2>
+      <div class="sub">Your role on each trip and what it unlocks.</div>
+    </div></div>
+    <div id="tripAccessList"></div>
   </section>
 
   <!-- ---------------------------------------------------------- profile -->
@@ -495,7 +606,7 @@ function go(view) {
   $("#hero").classList.toggle("hidden", view !== "explore");
   window.scrollTo({ top: 0, behavior: "smooth" });
   ({ explore: loadExplore, trips: loadTrips, bookings: loadBookings,
-     wishlist: loadWishlist, profile: loadProfile })[view]();
+     wishlist: loadWishlist, access: loadAccess, profile: loadProfile })[view]();
 }
 $("#tabs").addEventListener("click", (e) => {
   const b = e.target.closest("button[data-view]");
@@ -688,38 +799,6 @@ async function checkAvailability(hotelId) {
 }
 
 /* --------------------------------------------------------------- booking */
-async function startBooking(roomId, ci, co, guests) {
-  let trips;
-  try { trips = await api("/api/travel/trips"); }
-  catch (e) { toast("Could not load trips", e.message, "bad"); return; }
-
-  if (!trips.length) {
-    openModal("Book a room", `
-      <p class="muted">You need a trip before booking a room — the database keeps
-      every stay inside a trip's dates and only lets trip owners and editors book.</p>
-      <button class="btn mt" id="tripThenBook" data-room="${roomId}" data-ci="${ci}" data-co="${co}" data-guests="${guests}">
-        Create a trip first</button>`);
-    return;
-  }
-  const fits = trips.filter((t) => ci >= t.start_date && co <= addDay(t.end_date));
-  const options = (fits.length ? fits : trips).map((t) => `
-      <option value="${t.trip_id}" ${fits.length && t === fits[0] ? "selected" : ""}>
-        ${esc(t.title)} (${t.start_date} → ${t.end_date})${fits.includes(t) ? "" : " — dates outside stay"}</option>`).join("");
-  openModal("Confirm booking", `
-    <div class="field"><label>Trip</label><select id="bookTrip">${options}</select></div>
-    <div class="two">
-      <div class="field"><label>Check-in</label><input type="date" id="bci" value="${ci}" /></div>
-      <div class="field"><label>Check-out</label><input type="date" id="bco" value="${co}" /></div>
-    </div>
-    <div class="field"><label>Guests</label>
-      <select id="bg">${[1,2,3,4].map((n) => `<option${String(n) === String(guests) ? " selected" : ""}>${n}</option>`).join("")}</select>
-    </div>
-    <div class="field"><label>Special requests (optional)</label>
-      <input id="breq" maxlength="255" placeholder="Late check-in, high floor…" /></div>
-    <button class="btn" id="confirmBook" data-room="${roomId}">Confirm booking</button>
-    <p class="small muted mt">The database checks capacity, your trip dates, your role and
-    double-booking. If any of those fail you'll see the exact reason.</p>`);
-}
 const addDay = (d) => new Date(new Date(d).getTime() + 86400000).toISOString().slice(0, 10);
 
 async function confirmBooking(roomId) {
@@ -740,6 +819,22 @@ async function confirmBooking(roomId) {
     go("bookings");
   } catch (e) {
     btn.disabled = false; btn.textContent = "Confirm booking";
+    // A permission refusal carries the list of trips that would work.
+    const d = e.data && e.data.detail;
+    if (e.status === 403 && d && typeof d === "object" && d.message) {
+      const can = (d.bookable || []).map((t) => `
+          <div class="accessrow yes">
+            <span class="mark">✓</span>
+            <span><span class="label">${esc(t.title)}</span>
+              <div class="why">${esc(t.why)}</div></span>
+          </div>`).join("");
+      closeModal();
+      openModal("That trip is read-only for you", `
+        <div class="locknote">⚠ ${esc(d.message)}</div>
+        ${can ? `<div class="small muted mb">Trips where booking would work</div>
+                 <div class="accesslist">${can}</div>` : ""}`);
+      return;
+    }
     toast("Booking refused", e.message, "bad");
   }
 }
@@ -758,10 +853,19 @@ async function loadTrips() {
   $("#tripGrid").innerHTML = trips.map((t) => {
     const pct = t.budget_total ? Math.min(100, Math.round((t.actual_spend / t.budget_total) * 100)) : 0;
     const statusPill = t.status === "ongoing" ? "ok" : t.status === "cancelled" ? "bad" : "";
+    const canBook = t.capabilities && t.capabilities.book_room && t.capabilities.book_room.allowed;
+    const bookPill = canBook
+      ? `<span class="pill ok" title="Your role lets you book rooms on this trip">✓ can book</span>`
+      : `<span class="pill warn" title="${esc((t.capabilities && t.capabilities.book_room && t.capabilities.book_room.reason) || "")}">🔒 view only</span>`;
+    const expAllowed = !t.capabilities || !t.capabilities.add_expense || t.capabilities.add_expense.allowed;
     return `<article class="card">
       <div class="body">
         <h3>${esc(t.title)} <span class="pill ${statusPill}">${esc(t.status)}</span></h3>
-        <div class="small muted mb">${t.start_date} → ${t.end_date} · ${t.days} days · ${t.members} member${t.members === 1 ? "" : "s"} · you are ${esc(t.my_role)}</div>
+        <div class="small muted mb">${t.start_date} → ${t.end_date} · ${t.days} days · ${t.members} member${t.members === 1 ? "" : "s"}</div>
+        <div class="flex small mb">
+          <span class="rolebadge ${esc(t.my_role)}">● you are ${esc(t.my_role)}</span>
+          ${bookPill}
+        </div>
         <div class="grid stats">
           <div class="stat"><div class="k">Budget</div><div class="v">${money(t.budget_total)}</div></div>
           <div class="stat"><div class="k">Spent</div><div class="v ${pct >= 100 ? "rose" : pct >= 80 ? "amber" : "green"}">${money(t.actual_spend)}</div></div>
@@ -771,7 +875,8 @@ async function loadTrips() {
         <div class="small muted mt">${pct}% of budget spent</div>
         <div class="row mt">
           <button class="btn sm ghost" data-open-trip="${t.trip_id}">Open itinerary</button>
-          <button class="btn sm ghost" data-add-expense="${t.trip_id}" data-title="${esc(t.title)}">+ Expense</button>
+          ${expAllowed ? `<button class="btn sm ghost" data-add-expense="${t.trip_id}" data-title="${esc(t.title)}">+ Expense</button>` : ""}
+          ${canBook ? "" : `<span class="small muted">🔒 booking needs owner or editor</span>`}
         </div>
       </div>
     </article>`;
@@ -822,8 +927,9 @@ async function openTrip(id) {
       <span class="pill">${t.start_date} → ${t.end_date}</span>
       <span class="pill">${esc(t.status)}</span>
       <span class="pill">owner: ${esc(t.owner)}</span>
-      <span class="pill">you: ${esc(t.my_role)}</span>
+      <span class="rolebadge ${esc(t.my_role)}">● you are ${esc(t.my_role)}</span>
     </div>
+    ${t.role_blurb ? `<p class="small muted">Your role: ${esc(t.role_blurb)}.</p>` : ""}
     <div class="grid stats mb">
       <div class="stat"><div class="k">Budget</div><div class="v">${money(c.budget_total)}</div></div>
       <div class="stat"><div class="k">Spent</div><div class="v ${(c.actual_spend || 0) > (c.budget_total || 0) ? "rose" : "green"}">${money(c.actual_spend)}</div></div>
@@ -832,7 +938,10 @@ async function openTrip(id) {
     </div>
     <div class="bar mb"><span class="${pct >= 80 ? "hot" : ""}" style="width:${Math.min(100, pct)}%"></span></div>
     <div class="flex mb">
-      <button class="btn sm" data-add-expense="${t.trip_id}" data-title="${esc(t.title)}">+ Add expense</button>
+      ${canDo(t, "add_expense")
+        ? `<button class="btn sm" data-add-expense="${t.trip_id}" data-title="${esc(t.title)}">+ Add expense</button>`
+        : `<span class="pill bad">🔒 logging expenses is not available to you here</span>`}
+      ${canDo(t, "book_room") ? "" : `<span class="pill warn">🔒 booking needs owner or editor</span>`}
     </div>
     <h4 class="mt mb">Members</h4>
     <div class="flex mb">${t.members.map((m) => `<span class="pill">${esc(m.full_name)} · ${esc(m.role)}</span>`).join(" ")}</div>
@@ -845,6 +954,12 @@ async function openTrip(id) {
         <thead><tr><th>Date</th><th>What</th><th>Category</th><th>Paid by</th><th>Amount</th></tr></thead>
         <tbody>${exps}</tbody></table></div></div>` : `<p class="muted small">No expenses logged yet.</p>`}
     <h4 class="mt mb">Day by day</h4>${days}`);
+}
+
+/* A capability lookup that stays safe if the field is absent. */
+function canDo(trip, action) {
+  const cap = trip.capabilities && trip.capabilities[action];
+  return !cap || cap.allowed;
 }
 
 function newTripForm() {
@@ -1087,6 +1202,210 @@ $("#logout").addEventListener("click", async () => {
   location.href = "/login";
 });
 
+/* ------------------------------------------------------------- session */
+let SESSION = null;
+let sessionTimer = null;
+
+function fmtClock(sec) {
+  sec = Math.max(0, Math.floor(sec));
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m + ":" + String(s).padStart(2, "0");
+}
+
+function paintSession() {
+  if (!SESSION || !SESSION.active) return;
+  const left = SESSION.secondsLeft;
+  const chip = $("#sessionChip"), bar = $("#sessionBar");
+  $("#sessionClock").textContent = fmtClock(left);
+  chip.classList.toggle("warn", left <= 300 && left > 120);
+  chip.classList.toggle("crit", left <= 120);
+  chip.title = `Session ends in ${fmtClock(left)} — click to extend`;
+
+  // Warn once the window drops under five minutes, and shout under two.
+  if (left <= 300) {
+    bar.hidden = false;
+    bar.classList.toggle("crit", left <= 120);
+    $("#sessionWarn").textContent = left <= 120
+      ? `Your session ends in ${fmtClock(left)}. Any unsaved work will be lost.`
+      : `Your session ends in ${fmtClock(left)}. Extend it to stay signed in.`;
+  } else {
+    bar.hidden = true;
+  }
+
+  if (left <= 0) {
+    clearInterval(sessionTimer);
+    toast("Signed out", "Your session expired after 30 minutes of inactivity.", "warn");
+    setTimeout(() => { location.href = "/login"; }, 1800);
+  }
+}
+
+function startSessionClock() {
+  clearInterval(sessionTimer);
+  sessionTimer = setInterval(() => {
+    if (!SESSION || !SESSION.active) return;
+    SESSION.secondsLeft -= 1;
+    // The server slides the window on activity; resync once it should have.
+    if (SESSION.secondsLeft <= 0) refreshSession();
+    paintSession();
+  }, 1000);
+}
+
+async function refreshSession() {
+  try {
+    const s = await api("/api/auth/session");
+    if (!s.active) {
+      SESSION = { active: false, secondsLeft: 0 };
+      paintSession();
+      return;
+    }
+    SESSION = { active: true, secondsLeft: s.expires_in };
+    paintSession();
+  } catch { /* keep the last known value */ }
+}
+
+$("#sessionChip").addEventListener("click", async () => {
+  // Any authenticated request slides the window; /api/auth/me is the cheapest.
+  try { await api("/api/auth/me"); } catch {}
+  await refreshSession();
+  toast("Session extended", `You now have ${fmtClock(SESSION.secondsLeft)} left.`);
+});
+$("#sessionExtend").addEventListener("click", () => $("#sessionChip").click());
+
+/* -------------------------------------------------------------- access */
+const ROLE_TAG = (role) =>
+  `<span class="pill rolebadge ${esc(role)}">${esc(role)}</span>`;
+
+function accessRow(item) {
+  const yes = item.allowed;
+  return `<div class="accessrow ${yes ? "yes" : "no"}">
+      <span class="mark">${yes ? "✓" : "✕"}</span>
+      <span>
+        <span class="label">${esc(item.label)}</span>
+        <div class="why">${esc(item.reason)}</div>
+      </span>
+      <span class="tag pill ${yes ? "ok" : "bad"}">${yes ? "allowed" : "not allowed"}</span>
+    </div>`;
+}
+
+async function loadAccess() {
+  $("#accessStats").innerHTML = `<div class="skeleton" style="height:80px"></div>`;
+  let a;
+  try { a = await api("/api/travel/access"); }
+  catch (e) { $("#accessStats").innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+
+  const trips = a.trips;
+  const bookable = a.booking.bookable.length;
+  const blocked = a.booking.blocked.length;
+  $("#accessRole").innerHTML = `account: ${ROLE_TAG(a.user.role)}`;
+
+  $("#accessStats").innerHTML = `
+    <div class="stat"><div class="k">Trips you belong to</div><div class="v">${trips.length}</div></div>
+    <div class="stat"><div class="k">You can book on</div><div class="v green">${bookable}</div></div>
+    <div class="stat"><div class="k">Booking blocked</div><div class="v ${blocked ? "rose" : ""}">${blocked}</div></div>
+    <div class="stat"><div class="k">Your best role</div>
+      <div class="v">${trips.length ? ROLE_TAG(
+        ["owner","editor","viewer"].find((r) => trips.some((t) => t.my_role === r)) || "none") : "—"}</div></div>`;
+
+  // Account-wide actions.
+  const glob = await api("/api/me/permissions");
+  $("#globalAccess").innerHTML = glob.global.map(accessRow).join("");
+
+  // Booking availability, split so a blocked trip is explained rather than hidden.
+  const b = a.booking;
+  let html = "";
+  if (!b.can_book_any) {
+    html += `<div class="locknote">⚠ You cannot book on any trip yet. Create your own
+      trip, or ask an owner to make you an editor.</div>`;
+  }
+  if (b.bookable.length) {
+    html += `<div class="small muted mb">Available to you</div><div class="accesslist mb">`
+      + b.bookable.map((t) => `<div class="accessrow yes">
+          <span class="mark">✓</span>
+          <span><span class="label">${esc(t.title)}</span>
+            <div class="why">${t.start_date} → ${t.end_date} · ${esc(t.why)}</div></span>
+          <span class="tag">${ROLE_TAG(t.my_role)}</span></div>`).join("")
+      + `</div>`;
+  }
+  if (b.blocked.length) {
+    html += `<div class="small muted mb">Not available, and why</div><div class="accesslist">`
+      + b.blocked.map((t) => `<div class="accessrow no">
+          <span class="mark">✕</span>
+          <span><span class="label">${esc(t.title)}</span>
+            <div class="why">${t.start_date} → ${t.end_date} · ${esc(t.why)} ${esc(t.needs)}</div></span>
+          <span class="tag">${ROLE_TAG(t.my_role)}</span></div>`).join("")
+      + `</div>`;
+  }
+  $("#bookableList").innerHTML = html;
+
+  // Per-trip capability tables.
+  $("#tripAccessList").innerHTML = trips.length ? trips.map((t) => {
+    const order = ["view", "edit_itinerary", "book_room", "book_transport",
+                   "cancel_booking", "add_expense", "manage_members", "delete_trip"];
+    const rows = order.filter((k) => t.capabilities[k])
+      .map((k) => accessRow({ ...t.capabilities[k], allowed: t.capabilities[k].allowed })).join("");
+    return `<div class="card mb"><div class="body">
+        <h3>${esc(t.title)} ${ROLE_TAG(t.my_role)}</h3>
+        <div class="small muted mb">${t.start_date} → ${t.end_date} · ${esc(t.role_blurb)}</div>
+        <div class="accesslist">${rows}</div>
+      </div></div>`;
+  }).join("") : `<div class="empty"><span class="big">🧭</span>You are not a member of any trip yet.</div>`;
+}
+
+/* --------------------------------------------------------- booking flow */
+async function startBooking(roomId, ci, co, guests) {
+  let opts;
+  try { opts = await api("/api/me/booking-options"); }
+  catch (e) { toast("Could not load trips", e.message, "bad"); return; }
+
+  if (!opts.bookable.length) {
+    // Say exactly what is wrong, list what the user does have, and offer a way out.
+    const blocked = opts.blocked.map((t) => `
+        <div class="accessrow no">
+          <span class="mark">✕</span>
+          <span><span class="label">${esc(t.title)}</span>
+            <div class="why">${esc(t.why)} ${esc(t.needs)}</div></span>
+          <span class="tag">${ROLE_TAG(t.my_role)}</span>
+        </div>`).join("");
+    openModal("You cannot book yet", `
+      <div class="locknote">⚠ A room can only be booked against a trip you own or edit.
+        On every trip you belong to you are only a viewer.</div>
+      ${blocked ? `<div class="small muted mb">Trips you are on</div><div class="accesslist mb">${blocked}</div>` : ""}
+      <p class="muted small">Create your own trip and you become its owner, which unlocks booking.</p>
+      <button class="btn mt" id="tripThenBook" data-room="${roomId}" data-ci="${ci}" data-co="${co}" data-guests="${guests}">
+        Create a trip first</button>`);
+    return;
+  }
+
+  const fits = (t) => ci >= t.start_date && co <= addDay(t.end_date);
+  const sorted = [...opts.bookable].sort((a, b) => (fits(b) ? 1 : 0) - (fits(a) ? 1 : 0));
+  const options = sorted.map((t) => `
+      <option value="${t.trip_id}" ${fits(t) && sorted.indexOf(t) === 0 ? "selected" : ""}>
+        ${esc(t.title)} — ${t.my_role} (${t.start_date} → ${t.end_date})${fits(t) ? "" : " · dates outside stay"}</option>`).join("");
+
+  const blockedNote = opts.blocked.length
+    ? `<div class="locknote">⚠ ${opts.blocked.length} trip${opts.blocked.length === 1 ? "" : "s"} hidden
+        because you are only a viewer there:
+        ${opts.blocked.map((t) => esc(t.title)).join(", ")}.</div>`
+    : "";
+
+  openModal("Confirm booking", `
+    ${blockedNote}
+    <div class="field"><label>Trip (only trips you can book on are listed)</label>
+      <select id="bookTrip">${options}</select></div>
+    <div class="two">
+      <div class="field"><label>Check-in</label><input type="date" id="bci" value="${ci}" /></div>
+      <div class="field"><label>Check-out</label><input type="date" id="bco" value="${co}" /></div>
+    </div>
+    <div class="field"><label>Guests</label>
+      <select id="bg">${[1,2,3,4].map((n) => `<option${String(n) === String(guests) ? " selected" : ""}>${n}</option>`).join("")}</select>
+    </div>
+    <div class="field"><label>Special requests (optional)</label>
+      <input id="breq" maxlength="255" placeholder="Late check-in, high floor…" /></div>
+    <button class="btn" id="confirmBook" data-room="${roomId}">Confirm booking</button>
+    <p class="small muted mt">The database checks capacity, your trip dates, your role and
+    double-booking. If any of those fail you'll see the exact reason.</p>`);
+}
+
 (async function boot() {
   try {
     const me = await api("/api/auth/me");
@@ -1094,6 +1413,11 @@ $("#logout").addEventListener("click", async () => {
     $("#whoName").textContent = u.name;
     $("#whoRole").textContent = u.role;
     $("#avatar").textContent = (u.name || "?").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+    await refreshSession();
+    startSessionClock();
+    // Re-sync every minute so the countdown tracks the server's sliding window
+    // rather than drifting away from it.
+    setInterval(refreshSession, 60000);
     go("explore");
   } catch {
     location.href = "/login";

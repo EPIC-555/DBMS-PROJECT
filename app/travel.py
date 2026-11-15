@@ -19,7 +19,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from . import auth, db
+from . import auth, db, permissions
 
 router = APIRouter(prefix="/api/travel", tags=["travel"])
 
@@ -329,8 +329,12 @@ def recommendations(
 # --------------------------------------------------------------------- trips
 @router.get("/trips")
 def my_trips(user: dict = Depends(signed_in)) -> list[dict]:
-    """Trips the caller belongs to, with booking and spend totals."""
-    return db.query(
+    """Trips the caller belongs to, with booking and spend totals.
+
+    Each trip carries ``capabilities`` so a card can show what the caller may do
+    with it, rather than presenting actions that the trigger will reject.
+    """
+    rows = db.query(
         """
         SELECT t.trip_id, t.title, t.start_date, t.end_date, t.budget_total,
                t.status, t.is_public, tm.role AS my_role,
@@ -353,6 +357,12 @@ def my_trips(user: dict = Depends(signed_in)) -> list[dict]:
         """,
         (user["uid"],),
     )
+    caps = {t["trip_id"]: t["capabilities"] for t in permissions.trip_matrix(user)}
+    for row in rows:
+        row["capabilities"] = caps.get(row["trip_id"], {})
+        row["can"] = sorted(k for k, v in row["capabilities"].items() if v["allowed"])
+        row["cannot"] = sorted(k for k, v in row["capabilities"].items() if not v["allowed"])
+    return rows
 
 
 @router.post("/trips", status_code=201)
@@ -397,6 +407,15 @@ def trip_detail(trip_id: int, user: dict = Depends(signed_in)) -> dict:
     if not rows:
         raise HTTPException(404, "Trip not found, or you are not a member")
     trip = rows[0]
+
+    matrix = next(
+        (t for t in permissions.trip_matrix(user) if t["trip_id"] == trip_id), None
+    )
+    if matrix:
+        trip["capabilities"] = matrix["capabilities"]
+        trip["role_blurb"] = matrix["role_blurb"]
+        trip["can"] = matrix["can"]
+        trip["cannot"] = matrix["cannot"]
 
     trip["members"] = db.query(
         """
@@ -469,6 +488,12 @@ def book_room(payload: BookingCreate, user: dict = Depends(write_access)) -> dic
     """
     if payload.check_out <= payload.check_in:
         raise HTTPException(400, "Check-out must be after check-in")
+    # Explain the limit before the database does. The trigger is still the real
+    # guard; this only turns its terse rejection into something actionable.
+    denial = permissions.explain_denial(user, payload.trip_id, "book_room")
+    if denial:
+        options = permissions.booking_options(user)
+        raise HTTPException(403, detail={"message": denial, **options})
     try:
         result = db.call_procedure(
             "sp_book_room",
@@ -645,6 +670,27 @@ def toggle_wishlist(destination_id: int, user: dict = Depends(write_access)) -> 
 
 
 # ------------------------------------------------------------- profile stats
+@router.get("/access")
+def my_access(user: dict = Depends(signed_in)) -> dict:
+    """A single call for the travel app: what this traveller can and cannot do.
+
+    The page renders the allowed actions and greys out the rest with the reason,
+    instead of showing a button that fails.
+    """
+    matrix = permissions.trip_matrix(user)
+    return {
+        "user": {
+            "user_id": user["uid"],
+            "full_name": user.get("name"),
+            "role": user.get("role", "user"),
+        },
+        "booking": permissions.booking_options(user),
+        "trips": matrix,
+        "role_blurb": permissions.ROLE_BLURB,
+        "actions": permissions.TRIP_ACTIONS,
+    }
+
+
 @router.get("/profile")
 def profile(user: dict = Depends(signed_in)) -> dict:
     """Headline numbers for the account page."""

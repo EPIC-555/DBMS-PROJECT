@@ -11,12 +11,12 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from . import auth, catalog, db, recommender, travel
+from . import auth, catalog, db, permissions, recommender, travel
 
 load_dotenv()
 
@@ -26,8 +26,64 @@ STATIC_DIR = BASE_DIR / "static"
 app = FastAPI(
     title="Travel Itinerary and Expense Organizer API",
     description="A FastAPI layer over the travel_itinerary_db MySQL schema.",
-    version="1.1.0",
+    version="2.0.0",
 )
+
+
+def _cookie_secure() -> bool:
+    return os.getenv("COOKIE_SECURE", "false").lower() == "true"
+
+
+# Headers that are safe for a single-origin app that loads no third-party code.
+# The pages are hand-written HTML with inline <style> and <script>, so the policy
+# allows inline but still blocks remote scripts, framing and form hijacking.
+_SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "same-origin",
+    "Permissions-Policy": "geolocation=(), camera=(), microphone=()",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data:; "
+        "connect-src 'self'; "
+        "font-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'"
+    ),
+}
+
+
+@app.middleware("http")
+async def harden(request: Request, call_next):
+    """Attach security headers and slide the session window forward.
+
+    Renewal is deliberate rather than per-request: the cookie is only reissued
+    once ``SESSION_REFRESH_AFTER_SECONDS`` of the window has passed, which keeps
+    an active tab alive without writing a Set-Cookie header on every call.
+    """
+    response = await call_next(request)
+    for name, value in _SECURITY_HEADERS.items():
+        response.headers.setdefault(name, value)
+    if _cookie_secure():
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+
+    token = request.cookies.get(auth.SESSION_COOKIE)
+    if token and auth.should_renew(token):
+        session = auth.read_session(token)
+        if session is not None:
+            user = {
+                "user_id": session["uid"], "email": session["email"],
+                "full_name": session["name"], "role": session["role"],
+            }
+            _set_session_cookie(response, auth.make_session(user))
+    return response
+
 
 if STATIC_DIR.is_dir():
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -49,20 +105,18 @@ class SignUp(BaseModel):
 
 
 def _set_session_cookie(response: Response, token: str) -> None:
-    secure = os.getenv("COOKIE_SECURE", "false").lower() == "true"
     response.set_cookie(
         auth.SESSION_COOKIE, token, max_age=auth.SESSION_TTL_SECONDS,
-        httponly=True, samesite="lax", secure=secure, path="/",
+        httponly=True, samesite="lax", secure=_cookie_secure(), path="/",
     )
 
 
 def _set_csrf_cookie(response: Response) -> str:
     """Issue the double-submit CSRF token. Readable by page scripts on purpose."""
     token = auth.issue_csrf_token()
-    secure = os.getenv("COOKIE_SECURE", "false").lower() == "true"
     response.set_cookie(
         auth.CSRF_COOKIE, token, max_age=auth.SESSION_TTL_SECONDS,
-        httponly=False, samesite="lax", secure=secure, path="/",
+        httponly=False, samesite="lax", secure=_cookie_secure(), path="/",
     )
     return token
 
@@ -117,7 +171,13 @@ def sign_up(payload: SignUp, response: Response) -> dict:
 
 
 @app.post("/api/auth/logout")
-def logout(response: Response, _: None = Depends(csrf_protect)) -> dict:
+def logout(
+    response: Response,
+    _: None = Depends(csrf_protect),
+    token: str | None = Cookie(default=None, alias=auth.SESSION_COOKIE),
+) -> dict:
+    """Clear the cookies and revoke just this session."""
+    auth.revoke_session(token)
     response.delete_cookie(auth.SESSION_COOKIE, path="/")
     response.delete_cookie(auth.CSRF_COOKIE, path="/")
     return {"ok": True}
@@ -128,6 +188,18 @@ def me(user: dict = Depends(auth.current_user)) -> dict:
     return {"user": user}
 
 
+@app.get("/api/auth/session")
+def session_info(
+    token: str | None = Cookie(default=None, alias=auth.SESSION_COOKIE),
+) -> dict:
+    """Report the session lifetime so the page can show a countdown.
+
+    Deliberately unauthenticated: it answers ``{"active": false}`` instead of a
+    401, so a page can render "signed out" without an error path.
+    """
+    return auth.session_state(token)
+
+
 @app.get("/api/auth/csrf")
 def csrf_token(response: Response) -> dict:
     """Issue a CSRF token so a page can make unsafe calls after a reload.
@@ -136,6 +208,29 @@ def csrf_token(response: Response) -> dict:
     load; after that it reads the cookie directly.
     """
     return {"csrf_token": _set_csrf_cookie(response)}
+
+
+# ------------------------------------------------------------- permissions
+@app.get("/api/me/permissions")
+def my_permissions(user: dict = Depends(signed_in)) -> dict:
+    """Everything this account may and may not do, in one response.
+
+    The UI renders this as a capability panel instead of letting a user discover
+    a limit by hitting a rejected write.
+    """
+    return permissions.summary(user)
+
+
+@app.get("/api/me/trips")
+def my_trip_permissions(user: dict = Depends(signed_in)) -> list[dict]:
+    """Per-trip capability matrix, for the trip cards and the booking dialog."""
+    return permissions.trip_matrix(user)
+
+
+@app.get("/api/me/booking-options")
+def my_booking_options(user: dict = Depends(signed_in)) -> dict:
+    """Trips that can take a booking, plus the ones that cannot and why."""
+    return permissions.booking_options(user)
 
 
 # ------------------------------------------------------------------ meta
@@ -482,7 +577,8 @@ def download_bundle(_: dict = Depends(signed_in)) -> Response:
 
     files = [
         "app/__init__.py", "app/db.py", "app/auth.py", "app/catalog.py",
-        "app/recommender.py", "app/travel.py", "app/main.py", "app/README.md",
+        "app/permissions.py", "app/recommender.py", "app/travel.py", "app/main.py",
+        "app/README.md",
         "static/index.html", "static/login.html", "static/app.html",
         "tests/test_api.py",
         "requirements.txt", "Dockerfile", "docker-compose.yml",
