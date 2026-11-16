@@ -1,6 +1,9 @@
-# Travel Itinerary and Expense Organizer
+# Travel Itinerary and Expense Organizer — **TripNest**
 
-A relational database project in **MySQL / MySQL Workbench** for a team of three. Travellers plan a trip day by day, book hotels, flights, trains, cabs, buses and metro, split costs fairly, and watch the budget. The database enforces its own business rules with triggers, constraints and stored procedures.
+A relational database project in **MySQL 8.4** for a team of three, with a **FastAPI** web layer on top. Travellers plan a trip day by day, book hotels, flights, trains, cabs, buses and metro, split costs fairly, and watch the budget. The database enforces its own business rules with triggers, constraints and stored procedures — the app never re-implements them.
+
+**Live demo:** <https://dbms-project-production-0729.up.railway.app>
+**Interactive API docs:** `/docs` on the same host
 
 | Final database | |
 |---|---|
@@ -14,51 +17,107 @@ A relational database project in **MySQL / MySQL Workbench** for a team of three
 | Sample rows | 399 (30 tables loaded; `audit_log` and `trip_alerts` fill when triggers fire) |
 | Named demo queries | 25, plus about 30 rule and trigger tests |
 
-> **Status.** The SQL was verified by a separate simulation of every constraint and trigger rule, but it has not yet been executed on the team's own MySQL server. **Day-one acceptance test:** run `sql/00_build_everything.sql` and check that the last result grid shows `tables 32, foreign keys 41, triggers 31, views 4`.
+| Web layer | |
+|---|---|
+| Pages | Dashboard (`/`), traveller app **TripNest** (`/app`), login/sign-up (`/login`) |
+| API | FastAPI 0.115.6 on Python 3.12 |
+| Auth | bcrypt (cost 12) sessions, HMAC-signed cookie, CSRF double-submit |
+| Tests | 86 passing (`pytest`) |
+
+> **Status.** The SQL was verified by a separate simulation of every constraint and trigger rule, and is now executed live through the FastAPI layer. **Day-one acceptance test:** run `00_build_everything.sql` and check that the last result grid shows `tables 32, foreign keys 41, triggers 31, views 4` — or sign in and open the dashboard, which reports the same counts from `/api/health`.
 
 ---
 
 ## 1. Repository layout
 
 ```
-travel-itinerary-db/
+DBMS-PROJECT/
   README.md                        this file: the project handbook
-  sql/
-    00_build_everything.sql        one-click build = 01 + 03 + 05
-    01_travel_itinerary_v2_full.sql core schema + hotel module + 12 triggers + 2 procedures + data
-    03_transport_module.sql         flights, trains, cabs, buses, metro + 12 triggers + data
-    05_smart_features.sql           audit_log, trip_alerts, 7 AFTER triggers, 2 dashboard views
-  demo/
-    02_demo_queries.sql             Q1-Q12, core rule tests C1-C14, procedure demo
-    04_transport_demo.sql           T1-T7, transport rule tests X1-X12
-    06_demo_amenities_views_triggers.sql  amenities A1-A4, views B1-B2, alert + audit demo C1-C4
-  docs/
-    Tech_Stack_and_Roadmap.pdf      technology stack, architecture, roadmap
-    (report, EER diagram image, screenshots, data dictionary)
-  app/                             optional Streamlit app (Phase 4)
+  TECH_STACK.md                    technology stack, in detail
+  DEPLOYMENT.md                    how the live site is built and deployed
+  AGENTS.md                        notes for contributors and AI agents
+  Dockerfile                       image for the API (copies app/ and static/ only)
+  docker-compose.yml               MySQL 8.4 + API, for local runs
+  .env.example                     every environment variable, with notes
+  requirements.txt                 pinned Python dependencies
+
+  00_build_everything.sql          one-click build = 01 + 03 + 05
+  01_travel_itinerary_v2_full.sql  core schema + hotel module + 12 triggers + 2 procedures + data
+  03_transport_module.sql          flights, trains, cabs, buses, metro + 12 triggers + data
+  05_smart_features.sql            audit_log, trip_alerts, 7 AFTER triggers, 2 dashboard views
+
+  02_demo_queries.sql              Q1-Q12, core rule tests C1-C14, procedure demo
+  04_transport_demo.sql            T1-T7, transport rule tests X1-X12
+  06_demo_amenities_views_triggers.sql  amenities A1-A4, views B1-B2, alert + audit demo
+
+  app/                             FastAPI service
+    main.py                        routes, static mounts, page handlers
+    travel.py                      the traveller-app API (/api/travel/*)
+    auth.py                        bcrypt, sessions, CSRF, rate limiting
+    permissions.py                 what a given user may do, from the database
+    catalog.py                     destinations, hotels, search, reviews
+    recommender.py                 destination scoring model
+    db.py                          connection pool and helpers
+  static/                          the front end served by FastAPI
+    index.html                     dashboard (schema inspector)
+    app.html                       TripNest (traveller app)
+    login.html                     sign-in and sign-up
+    snow.js                        winter/snowfall effect layer
+    fx.js                          scroll-reveal and click effects layer
+  tests/test_api.py                86 tests against a live MySQL
+
+  PDFs at repo root                Tech_Stack_and_Roadmap.pdf, ER diagrams, feasibility, trigger notes
 ```
 
 ## 2. How to run it
 
 **Prerequisite: a MySQL server must be running.** Workbench is only a client. If Workbench says "Unable to connect to 127.0.0.1:3306", the server is not installed or not started (press Win+R, run `services.msc`, start the MySQL service, or install MySQL Server 8.4 LTS with the MySQL Installer).
 
+### Option A — Docker Compose (recommended)
+
+Needs Docker Desktop (or Docker Engine) running. Nothing else.
+
+```bash
+cp .env.example .env
+# put a real key in .env - compose refuses to start without one:
+python -c "import secrets; print(secrets.token_urlsafe(48))"
+# paste that value as APP_SECRET_KEY in .env, then:
+docker compose up -d --build
+# open http://localhost:8000 and sign in
+```
+
+Compose starts MySQL 8.4, loads `00_build_everything.sql` on first start, and runs the API against it. The first start takes a few minutes while the image builds and the schema loads. If port 3306 or 8000 is already taken, set `DB_PORT` and `APP_PORT` in `.env` to free ones.
+
+### Option B — an existing MySQL server
+
+```bash
+mysql -h127.0.0.1 -uroot -p < 00_build_everything.sql   # build the schema once
+cp .env.example .env                                    # then edit if needed
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+The app reads `.env` automatically. If your MySQL already has the schema loaded, skip the first line.
+
+### Option C — MySQL Workbench only (no app)
+
 1. Open MySQL Workbench and connect to `127.0.0.1:3306` as `root`.
-2. `File > Open SQL Script` and choose `sql/00_build_everything.sql`.
+2. `File > Open SQL Script` and choose `00_build_everything.sql`.
 3. Press the lightning-bolt button once. The script drops and rebuilds `travel_itinerary_db`.
 4. The last grid must show: **32 tables, 41 foreign keys, 31 triggers, 4 views.** Refresh the Schemas panel.
-5. For the demos, open a file from `demo/`, click inside one statement and press **Ctrl+Enter** to run only that statement. Take a screenshot of every result.
+5. For the demos, open a file from the numbered `0x` scripts, click inside one statement and press **Ctrl+Enter** to run only that statement.
 
 Demo order and what to expect:
 
 | Order | File | Run after | Expected |
 |---|---|---|---|
-| 1 | `demo/02_demo_queries.sql` | `01` (or any later script) | Its Section A shows 21/27/12 only if run right after `01`; after the full build it shows 32/41/31, which is correct |
-| 2 | `demo/04_transport_demo.sql` | `03` | Expected results are written in the comments |
-| 3 | `demo/06_demo_amenities_views_triggers.sql` | `05` | Quick check 32/41/31/4, then amenities, dashboards, alerts |
+| 1 | `02_demo_queries.sql` | `01` (or any later script) | Its Section A shows 21/27/12 only if run right after `01`; after the full build it shows 32/41/31, which is correct |
+| 2 | `04_transport_demo.sql` | `03` | Expected results are written in the comments |
+| 3 | `06_demo_amenities_views_triggers.sql` | `05` | Quick check 32/41/31/4, then amenities, dashboards, alerts |
 
 Re-running `01` rebuilds everything, so run `03` and `05` again afterwards (or just run `00`). Re-running `03` requires running `05` again.
 
-**EER diagram:** `Database > Reverse Engineer`, choose `travel_itinerary_db`, then `File > Export` as PNG or PDF. Workbench draws an IS-A link as a one-to-one relationship, so label the subtype tables on the exported image. The new Workbench 26.x line may not include the EER editor; if the menu is missing, use classic Workbench 8.0.x only for the diagram.
+**EER diagram:** `Database > Reverse Engineer`, choose `travel_itinerary_db`, then `File > Export` as PNG or PDF. Workbench draws an IS-A link as a one-to-one relationship, so label the subtype tables on the exported image.
 
 **Troubleshooting**
 
@@ -81,13 +140,15 @@ Re-running `01` rebuilds everything, so run `03` and `05` again afterwards (or j
 | **Transport**: flights, trains, cabs, buses, metro (public transport) | `03` | 9 | 12 BEFORE | Member B |
 | **Smart layer**: audit trail, budget alerts, dashboards | `05` | 2 | 7 AFTER | Member C |
 
+On top of the database sits one FastAPI service that serves three pages and two API families: the **schema dashboard** (`/`, admin-oriented, reads the live catalog) and the **traveller app TripNest** (`/app`, consumer-oriented, plans and books). Both talk to the same tables.
+
 ## 4. The 32 tables
 
 ### Core and hotels (21)
 
 | Table | Purpose and key design point |
 |---|---|
-| `users` | App users; unique e-mail; role user/admin |
+| `users` | App users; unique e-mail; role user/admin; bcrypt password hash |
 | `destinations` | Cities or regions; unique (name, country) |
 | `places` | Attractions, hotels, restaurants inside a destination; FK to destinations (RESTRICT) |
 | `activity_categories` | Lookup: Sightseeing, Food, Adventure, Transport, ... |
@@ -161,7 +222,7 @@ hotels 1 --- N hotel_amenities N --- 1 amenities
                (hotel_id, amenity_id, is_complimentary)
 ```
 
-If a reference PDF describes amenities differently, the usual variants are: (1) hotel-level junction table, **implemented**; (2) amenities attached to room types, which would add `room_type_amenities (room_type_id, amenity_id)`; (3) amenities as a text column in `hotels`, which breaks first normal form. Say clearly in the viva that the submitted ER diagram is the final design and the implementation follows it. Demo `06` Section A has four amenity queries.
+If a reference PDF describes amenities differently, the usual variants are: (1) hotel-level junction table, **implemented**; (2) amenities attached to room types, which would add `room_type_amenities (room_type_id, amenity_id)`; (3) amenities as a text column in `hotels`, which breaks first normal form. Demo `06` Section A has four amenity queries.
 
 ---
 
@@ -218,7 +279,18 @@ Five fictional trips, six users, 24 places, 8 hotels, 32 rooms, 8 hotel reservat
 | Hampi and Coorg Road Trip | 19-23 Oct 2026 | ongoing | 35,000 | Self-drive (no transport bookings); budget alert demo |
 | Manali Winter Break | 8-12 Jan 2027 | planned | 50,000 | Delhi metro, Volvo bus both ways; cascade-delete demo |
 
-All people, hotels, drivers and phone numbers are fictional. Carrier and station names are real organisations used as illustrative labels; **every time, number and fare is sample data, not a live schedule or price.** Demo passwords are SHA2 hashes only.
+All people, hotels, drivers and phone numbers are fictional. Carrier and station names are real organisations used as illustrative labels; **every time, number and fare is sample data, not a live schedule or price.**
+
+**Demo accounts** (seeded; sign in on `/login`, which also offers one-click fill):
+
+| Account | Role |
+|---|---|
+| `aarav.sharma@example.com` | admin |
+| `priya.nair@example.com` | user |
+
+Demo passwords come from the seed data. The first sign-in with a legacy SHA2-seeded account silently upgrades that row to a bcrypt hash (see §10).
+
+---
 
 ## 8. Queries (25) and key expected results
 
@@ -239,26 +311,150 @@ Key expected results (computed from the data):
 
 ---
 
-## 9. Technology stack (details in `docs/Tech_Stack_and_Roadmap.pdf`)
+## 9. The web application
 
-| Layer | Choice | Status |
+Two front ends share one FastAPI service and one schema.
+
+### The dashboard (`/`) — schema inspector
+
+Built for the viva: it reads the live catalog rather than hard-coded text.
+
+| Route | What it shows |
+|---|---|
+| `/api/health` | Connection status and the acceptance counts (32/41/31/4); signed-in users |
+| `/api/overview` | Every table with an exact row count, plus views and procedures |
+| `/api/triggers`, `/api/triggers/{name}` | The 31 triggers and their `CREATE TRIGGER` source |
+| `/api/fks` | The 41 foreign keys with their ON DELETE / ON UPDATE rules |
+| `/api/queries`, `/api/queries/{id}` | The 25 named demo queries |
+| `/api/rules`, `/api/rules/run` | The 25 rule tests, run in a rolled-back transaction |
+| `/api/cascades/{id}/run` | CASCADE and SET NULL demos |
+| `/api/alerts/run`, `/api/audit/run` | Budget alerts and the audit trail |
+| `/api/procedures/*` | The two stored procedures, plus `cleanup` |
+
+### TripNest (`/app`) — the traveller app
+
+The consumer side: browse, plan, book, track.
+
+| Route | What it does |
+|---|---|
+| `GET /api/travel/destinations`, `/destinations/{id}` | Browse places, with hotels, things to see and reviews |
+| `GET /api/travel/hotels`, `/hotels/{id}` | Hotels with amenities and room types |
+| `GET /api/travel/hotels/{id}/availability` | Rooms free for a date range and party size |
+| `GET /api/travel/search?q=` | One box over destinations, hotels and places |
+| `GET /api/travel/recommendations` | Personalised destination scores |
+| `GET/POST /api/travel/trips` | List and create trips (`sp_create_trip`) |
+| `GET /api/travel/trips/{id}` | Full itinerary: days, items, stays, expenses, costs |
+| `POST /api/travel/bookings` | Reserve a room (`sp_book_room`) |
+| `GET /api/travel/bookings`, `POST /bookings/{id}/cancel` | List and cancel stays |
+| `POST /api/travel/expenses` | Log an expense, returning any budget alert |
+| `POST /api/travel/reviews` | Rate a destination |
+| `GET /api/travel/wishlist`, `POST /wishlist/{id}` | Saved destinations; the POST toggles |
+| `GET /api/travel/profile` | The signed-in user's headline numbers |
+
+**Business rules stay in MySQL.** Room capacity, the trip date window, "only an owner or editor may book" and double-booking are enforced by `trg_res_validate_bi`. When a trigger rejects a booking, its message is returned as a 400 and shown to the user as-is. The API validates input and shapes JSON; it does not duplicate the rules.
+
+### Recommendation model
+
+Script `07_recommendation_engine.sql` was never committed, so the scoring model lives in `app/recommender.py`, against the existing tables. Weights match the documentation; exact scores may differ because the documented SQL does not exist here.
+
+| Factor | Weight |
+|---|---|
+| Quality (average rating, scaled) | 30 |
+| Crowd (number of reviews) | 15 |
+| Wishlist (number of saves) | 15 |
+| Personal taste (saved or rated 4+) | 20 |
+| In-season for the chosen month | 20 |
+
+## 10. Authentication and permissions
+
+Accounts come from the project's own `users` table, so no schema change was needed.
+
+| Route | Who can call it |
+|---|---|
+| `POST /api/auth/login`, `POST /api/auth/register` | anyone |
+| `GET /api/auth/me`, `GET /api/auth/csrf` | signed-in |
+| `POST /api/auth/logout` | signed-in, with CSRF |
+| All `GET /api/...` data routes | any signed-in user |
+| `POST /api/rules/run`, `/api/alerts/run`, `/api/audit/run`, `/api/cascades/{id}/run` | admin |
+| `POST /api/procedures/*` | admin |
+
+**Passwords.** New and upgraded hashes use **bcrypt, cost 12, per-password salt**. The seed data stores legacy `SHA2(password, 256)` digests; on the first successful sign-in of such an account the app verifies the legacy digest once and rewrites the row as bcrypt. Nothing is logged and no password is stored in the clear. Comparisons use `hmac.compare_digest`. Passwords longer than 72 bytes are rejected rather than silently truncated.
+
+**Sessions.** A `travel_session` cookie carries only the user id, name, e-mail, role and expiry, HMAC-SHA256 signed. It is `HttpOnly` and `SameSite=Lax`, so page scripts cannot read it and other sites cannot send it.
+
+**CSRF.** Every unsafe method requires a double-submit token: the server sets a readable `travel_csrf` cookie and the page echoes it in the `X-CSRF-Token` header. A cross-site page can cause a request but cannot read the cookie, so it cannot forge the header. A missing or wrong header returns 403.
+
+**Rate limiting.** Failed logins are limited to 5 attempts per e-mail and client per 5 minutes. Unknown accounts and wrong passwords return the same message, so the API does not reveal which e-mails exist.
+
+**Sign-up.** `POST /api/auth/register` creates an account and signs it in. The role is hard-coded to `user` and never read from the request, so nobody can register as an administrator. Duplicate e-mails are caught by the `uk_users_email` UNIQUE index and returned as 409. E-mail shape and a minimum password length of 8 are validated before the insert.
+
+**Permissions.** `app/permissions.py` builds one matrix that mirrors what the triggers actually enforce: a trip member's `role` (owner/editor/viewer) decides what they may do with that trip, and the account `role` decides schema-wide demo actions. Every entry carries `allowed` plus a human-readable `reason`, so the UI shows a tick or a greyed-out row with an explanation instead of a raw database error.
+
+**Not included:** password reset and MFA. A production system would add both.
+
+## 11. Front-end effects
+
+Two self-injecting scripts add motion without any markup changes. Both respect `prefers-reduced-motion` and disable themselves on coarse (touch) pointers.
+
+| File | Layer prefix | Effects |
 |---|---|---|
-| Database | MySQL Community Server 8.4 LTS, InnoDB, utf8mb4 (8.0 reached end of life in April 2026) | Required |
-| Client and modelling | MySQL Workbench | Required |
-| Language | SQL, MySQL dialect (DDL, DML, DQL, TCL, triggers, procedures, views) | Required |
-| Version control | Git and GitHub | Required |
-| App (stretch) | Python 3.12, Streamlit, mysql-connector-python, pandas, Plotly, python-dotenv | Optional |
-| Reproducible setup | Docker Compose with `mysql:8.4` | Optional |
-| AI trigger explainer | Claude API via the `anthropic` package | Optional |
+| `static/snow.js` | `.tn-fx` | Stars, drifting snowfall, vignette |
+| `static/fx.js` | `.tn-ux` | Scroll reveal with stagger, count-up stats, card tilt, cursor glow, press feedback, magnetic buttons |
 
-Why: the database does the work (rules in the database apply to every client); everything is free; plain SQL is easy to explain; the core needs no second language or server.
+`fx.js` is deliberately defensive: it never hides content unless the observer has already seen it, and a 2.5s watchdog reveals anything still hidden in view, so a script failure cannot blank a page. It uses the independent `translate`/`scale` properties rather than `transform`, so it composes with the pages' own hover lift instead of overriding it.
 
-## 10. How we divide the work (three members)
+## 12. Technology stack
+
+Full detail in **`TECH_STACK.md`**.
+
+| Layer | Choice |
+|---|---|
+| Database | MySQL Community Server 8.4 LTS, InnoDB, utf8mb4 |
+| Client and modelling | MySQL Workbench |
+| Language (data) | SQL, MySQL dialect (DDL, DML, DQL, TCL, triggers, procedures, views) |
+| Language (app) | Python 3.12 |
+| Web framework | FastAPI 0.115.6, Uvicorn 0.34.0 |
+| Driver | mysql-connector-python 9.1.0 |
+| Config | python-dotenv 1.0.1 |
+| Password hashing | bcrypt 5.0.0 (cost 12) |
+| Front end | Plain HTML, CSS and vanilla JavaScript — no framework, no build step |
+| Tests | pytest 8.3.4, httpx 0.28.1 |
+| Version control | Git and GitHub |
+| Container | Docker / Docker Compose (MySQL 8.4 + API) |
+| Hosting | Railway (live demo) |
+
+Why: the database does the work, so rules apply to every client; everything is free; plain SQL and dependency-light JavaScript are easy to explain in a viva.
+
+## 13. Deployment
+
+Full detail in **`DEPLOYMENT.md`**.
+
+The live site runs on Railway from `main`. The `Dockerfile` copies **`app/` and `static/` only** — anything committed at the repository root is not part of the image.
+
+```dockerfile
+COPY app ./app
+COPY static ./static
+```
+
+So the front end must live in `static/`, and root-level copies of `index.html`, `app.html`, `login.html` or `fx.js` will never be served. This is the single most common deployment mistake in this repo.
+
+Required environment variables are listed in `.env.example`. `APP_SECRET_KEY` is mandatory outside development: the app refuses to start with the built-in development key when `APP_ENV` is anything else, because a known key would let anyone forge a session cookie.
+
+## 14. Tests
+
+```bash
+pip install -r requirements.txt
+pytest -q
+```
+
+Set `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` and `DB_NAME` (or use a `.env` file) first. The 86 tests assert the acceptance counts, the documented query results, that all 25 rule tests are rejected, that writes need CSRF and the right role, that password hashing behaves, and that the demos leave no rows behind.
+
+## 15. How we divide the work (three members)
 
 | | Member A: Core and hotels | Member B: Transport | Member C: Smart layer, queries, report |
 |---|---|---|---|
-| Owns | `sql/01`, 21 tables, 12 triggers, 2 procedures | `sql/03`, 9 tables, 12 triggers, `v_trip_transport` | `sql/05`, 2 tables, 7 AFTER triggers, 2 views, queries |
-| Builds | Verify the schema against the ER diagram column by column; EER diagram; data dictionary (core); Git owner | Verify transport rules and data; data dictionary (transport); transport demo | Alerts and audit demo; dashboards; report; slides; optional Streamlit app |
+| Owns | `01`, 21 tables, 12 triggers, 2 procedures | `03`, 9 tables, 12 triggers, `v_trip_transport` | `05`, 2 tables, 7 AFTER triggers, 2 views, queries |
+| Builds | Verify the schema against the ER diagram column by column; EER diagram; data dictionary (core) | Verify transport rules and data; data dictionary (transport); transport demo | Alerts and audit demo; dashboards; report; slides |
 | Presents in the viva | ER diagram, IS-A, weak entities, composite key, **amenities**, hotel triggers, hotel booking demo | Supertype and subtypes, **public transport**, transport triggers and demo | Views, **AFTER triggers**, alerts and audit demo, query results |
 | Reviews | Member B's SQL | Member C's SQL | Member A's SQL |
 
@@ -270,30 +466,30 @@ Why: the database does the work (rules in the database apply to every client); e
 | 1 Core + hotels | 2-3 | Compare tables with the ER diagram | A signs off |
 | 2 Transport + smart layer | 3-5 | Read and test every trigger of your module | Quick check 32 / 41 / 31 / 4 |
 | 3 Testing + evidence | 5-8 | Run all demo files, screenshots, EER export | Every expected result matches |
-| 4 App (optional) | 8-12 | Streamlit dashboard, booking form, Rule Lab, AI explainer | App runs from a clean clone |
+| 4 Web app | 8-12 | Dashboard and TripNest both usable | App runs from a clean clone |
 | 5 Report + viva | 12-14 | Report, slides, rehearsal on a clean laptop | Demo runs in 12 minutes without errors |
 
-## 11. Feasibility (short)
+## 16. Feasibility (short)
 
 | Area | Verdict | Why |
 |---|---|---|
 | Technical | Feasible | Every feature (keys, CHECK, triggers with SIGNAL, views, transactions, row locking) exists natively in MySQL |
 | Operational | Feasible | Three laptops with MySQL Server and Workbench; setup under 30 minutes; scripts rebuild from scratch |
-| Economic | Feasible, Rs 0 | All tools are free; only the optional AI explainer needs an API key |
-| Schedule | Feasible | Database layer is scripted; remaining work is running, screenshots, report, rehearsal (about 14 days, fewer without the app) |
+| Economic | Feasible, Rs 0 | All tools are free; Railway's free tier hosts the demo |
+| Schedule | Feasible | Database layer is scripted; remaining work is running, screenshots, report, rehearsal |
 | Data and legal | Feasible | Fictional sample data; no real personal data; no card numbers stored |
 
 Main risks: server not running or version mismatch (check on day one), scripts run out of order (use `00_build_everything.sql`), team members editing the same script (one owner per module, pull requests).
 
-## 12. What to explain to the professor
+## 17. What to explain to the professor
 
 **The five-minute story** (in this order):
 
 1. **Problem.** Groups plan trips across many bookings and share costs; data is scattered and rules are easy to break.
 2. **Design.** 32 tables in three modules. Show the EER diagram. Point out IS-A (places to hotels, transport to five subtypes), weak entities (payments, reviews, passengers), the composite foreign key, and the amenities junction table.
-3. **Rules inside the database.** 31 triggers. BEFORE triggers reject bad data (double booking, overlapping activities, wrong carrier type); AFTER triggers react (audit log, budget alerts). Explain why a CHECK constraint cannot do this.
+3. **Rules inside the database.** 31 triggers. BEFORE triggers reject bad data; AFTER triggers react (audit log, budget alerts). Explain why a CHECK constraint cannot do this.
 4. **Live demo (12 minutes).** A: quick check, double booking and capacity rejection, `sp_book_room`, amenities queries. B: T1, T5, T6 and the carrier and station rejections. C: timeline and budget dashboard views, then the alert and audit demo with rollback.
-5. **Honesty.** Limitations (below) and what you would do next (indexes from EXPLAIN, role-based accounts, a scheduled event for trip status, the Streamlit app).
+5. **Honesty.** Limitations (below) and what you would do next.
 
 **Concepts every member must be able to explain:** ER to relational mapping; strong vs weak entity; IS-A mapping; many-to-many with an attribute; composite key and composite foreign key; CASCADE vs RESTRICT vs SET NULL; why DECIMAL for money; third normal form and derived data in views; BEFORE vs AFTER triggers, `NEW` and `OLD`, `SIGNAL`; transactions and `FOR UPDATE`; why the overlap formula uses strict comparisons.
 
@@ -311,27 +507,28 @@ Main risks: server not running or version mismatch (check on day one), scripts r
 | Can a trigger change the table it fires on? | No (error 1442); that is why the alert trigger writes to `trip_alerts` |
 | Do cascaded deletes fire triggers? | No, InnoDB cascades do not activate triggers |
 | Which normal form? | Third normal form; computed values live in views |
+| Why bcrypt instead of SHA2 for passwords? | bcrypt is deliberately slow and salted per password, so a leaked table cannot be attacked with a rainbow table or a fast brute force |
 
-## 13. Limitations
+## 18. Limitations
 
-* The SQL has been verified by simulation, not yet by a run on the team's MySQL server (acceptance test: the quick-check counts).
-* Demo passwords use SHA2; a real system needs bcrypt or argon2.
 * The settlement query splits costs equally among all members, including viewers.
 * All times, flight and train numbers and fares are sample values.
 * The older generic `bookings` table still holds some records for transport items that are also stored in `transport_bookings`; new transport must go through the transport module.
 * Audit triggers record direct updates and deletes only, because cascaded deletes do not fire triggers.
 * No multi-currency support and no ferry or tram mode.
+* Script `07_recommendation_engine.sql` is absent, so scoring is implemented in Python rather than SQL.
+* No password reset or MFA.
 
-## 14. Team checklist
+## 19. Team checklist
 
 - [ ] MySQL Server 8.4 LTS running on every laptop; Workbench connects
 - [ ] `00_build_everything.sql` run; quick check shows 32 / 41 / 31 / 4
 - [ ] Member A: schema compared with the ER diagram; EER diagram exported
 - [ ] Member B: transport demo (`04`) run; every expected result matched
 - [ ] Member C: alert and audit demo (`06`) run; dashboards checked
-- [ ] Screenshots of every result saved in `docs/`
+- [ ] Screenshots of every result saved
 - [ ] Data dictionary written (A: core, B: transport, C: smart layer)
+- [ ] Dashboard and TripNest both run from a clean clone
 - [ ] Report and slides finished; 12-minute demo rehearsed on a clean laptop
-- [ ] Optional: Streamlit app and AI trigger explainer
 
 **Team members:** ______________ (A), ______________ (B), ______________ (C)
